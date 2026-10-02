@@ -1,0 +1,921 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Governed Agent Platform</title>
+<!--
+  ======================================================================
+  HOW TO EDIT THE WORDS ON THIS PAGE (no tools needed)
+
+  1. Open this file in Notepad. The text block right below this note
+     (the script with id="content") holds every word on the page.
+  2. Change any text after an "=" sign. Save. Reload the page.
+       [meta]        page heading
+       [group x]     dashed boundary boxes
+       [node x]      boxes in the diagram (name, sub-line, detail)
+       [flow x]      arrows (label and detail)
+       [step x]      chapters, in the order they appear here
+                     (log1..log4 = the example run lines in the side panel,
+                      written as:  tag | text | colour   where colour is
+                      c1 orange, c2 teal, c3 blue, c4 green, c5 violet,
+                      ro gray or err red)
+     Names such as Engineer 1, agent-1, Team A or mcp-jira are plain text
+     in the [node ...] sections. Rename them there.
+  3. A long value can continue on the next lines if they start with
+     two spaces. A blank line between them starts a new paragraph.
+     **double stars** make bold, `backticks` make code, {gw} inserts
+     the name of node gw.
+  4. Lines that start with # are notes and are ignored.
+
+  Or, in the browser: press E to edit text in place, then Ctrl+S to
+  save a new copy of this file. Press O (or drag a .txt onto the page)
+  to load text in this same format from a file.
+  ======================================================================
+-->
+<script type="text/plain" id="content">
+[meta]
+kicker = Explainer · Agent management
+title = Each agent acts as one engineer and writes in one place
+subtitle = Engineer, own agent, released skills, LLM, MCP servers, reference data, shared output
+
+[group env]
+name = Windows environment · agent domain
+
+[group mcpz]
+name = MCP servers · same domain
+
+[group cloud]
+name = Off-premises cloud
+
+[node eng]
+name = Engineers
+sub = Windows laptops · PKI sign-in
+detail = Each engineer works from a Windows laptop and signs in with a PKI certificate. They prompt their own agent and review everything it writes. Three engineers are shown as an example.
+
+[node lead]
+name = Group Lead
+sub = reviews · approves · releases
+detail = The only person who can release a skill or memory change into the CM-controlled area. Engineers propose changes; the Group Lead reviews and approves them.
+
+[node cm]
+name = CM-controlled area
+sub = Team skills · MEMORY.md
+detail = Holds each team's `SKILL.md` files (Team A, Team B and Team C) and the shared `MEMORY.md`. Files here are locked and versioned like any other CM item. Agents can read them; only a release by the Group Lead changes them.
+
+[node agents]
+name = Agents
+sub = agent-1 · agent-2 · agent-3
+detail = One agent per engineer, running in the Windows environment. Each carries its user's certificate, so everything it does is done as, and traceable to, that engineer. Agents read released skills, think with the {llm}, and act only through the connections shown here.
+
+[node tasks]
+name = Scheduled tasks
+sub = e.g. weekdays 06:00
+detail = A scheduled task in the Windows environment can start an agent at a set time, for example every weekday morning. The run uses the owning engineer's certificate and the same released skills.
+
+[node llm]
+name = LLM
+sub = off-premises · HTTPS
+detail = A large language model hosted in the cloud and reached over an encrypted HTTPS API. It returns plans and drafts. It has no access to our systems: anything it suggests is carried out by the agent.
+
+[node mcpj]
+name = mcp-jira
+sub = MCP server · Jira
+detail = Gives agents controlled, two-way access to {jira}: search issues, read them and post updates. Agents never hold Jira credentials themselves.
+
+[node mcpc]
+name = mcp-confluence
+sub = MCP server · Confluence
+detail = Gives agents controlled, two-way access to {conf}: search and read pages, post updates. Agents never hold Confluence credentials themselves.
+
+[node mcpd]
+name = mcp-docs
+sub = MCP server · reference data
+detail = Gives agents access to the {ref}. It is read-only: any attempt to write is refused.
+
+[node jira]
+name = Jira
+sub = connected app
+detail = Issue tracking. Reached only through {mcpj}.
+
+[node conf]
+name = Confluence
+sub = connected app
+detail = Wiki pages. Reached only through {mcpc}.
+
+[node mail]
+name = Email
+sub = connected app
+detail = Agents have a two-way link to email, for example to send a draft summary to their engineer.
+
+[node ref]
+name = Reference directories
+sub = SOPs · documents · history
+detail = The user-defined reference directories: SOPs, technical documents, and historical records and logs. Agents can only read from them.
+
+[node out]
+name = Shared output directory
+sub = only writable path
+detail = The only path agents can write to, with a folder per user. Each engineer sets their agent's write directory and reviews what it produces. A Metrics & Tool Usage folder tracks skills used, time saved and customer value. Nothing here becomes a CM item on its own.
+
+[flow chat]
+label = Prompts · replies
+detail = The engineer sends prompts; the agent answers in the same conversation, signed with the engineer's certificate.
+
+[flow propose]
+label = Propose change
+detail = An engineer proposes a change to a skill or to the shared memory file.
+
+[flow release]
+label = Approve · release
+detail = The Group Lead reviews the change, approves it and releases it into the CM-controlled area.
+
+[flow load]
+label = Read-only
+detail = Agents load their team's released skills and the shared memory file. They cannot change them.
+
+[flow sched]
+label = Starts a run
+detail = At the set time the scheduled task starts an agent, as the engineer who owns the task.
+
+[flow llm_call]
+label = HTTPS · encrypted
+detail = The agent sends a prompt with context to the LLM and gets a plan or draft back. Traffic is encrypted.
+
+[flow mcp_jira]
+label = Issues
+detail = Agent requests to Jira go through {mcpj}, in both directions.
+
+[flow mcp_conf]
+label = Pages
+detail = Agent requests to Confluence go through {mcpc}, in both directions.
+
+[flow mcp_docs]
+label = Documents
+detail = Agent requests for reference documents go through {mcpd}.
+
+[flow jira_app]
+label = Search · post
+detail = {mcpj} searches issues and posts updates in Jira.
+
+[flow conf_app]
+label = Read · update
+detail = {mcpc} reads pages and posts updates in Confluence.
+
+[flow ref_read]
+label = Read only
+detail = Reference data flows one way, out of the directories. Writes are refused.
+
+[flow email]
+label = Email · two-way
+detail = A direct two-way link between the agents and email.
+
+[flow write]
+label = Write only here
+detail = The only place an agent can write: one folder per user in the shared output directory.
+
+[flow review]
+label = Review
+detail = The engineer opens and reviews what the agent wrote.
+
+[step overview]
+short = Overview
+title = One agent per engineer, governed end to end
+body = Each **engineer** prompts their own **agent**. Agents run in our **Windows environment** under that engineer's certificate and follow skills released into the **{cm}**. They reason with an off-premises **{llm}**, reach Jira, Confluence and reference data through **MCP servers** in the same domain, and write only to the **{out}**.
+callout_label = Read the colors
+callout = Orange is people, teal is agents, blue is CM-controlled, green is connected systems, violet is agent output and gray is read-only.
+focus = all
+flows = all
+log1 = status | 3 agents online · Windows environment | c2
+log2 = cm | Team A/B/C skills · MEMORY.md (locked) | c3
+log3 = mcp | jira · confluence · docs connected | c4
+
+[step prompt]
+short = Prompt
+title = Engineers prompt their own agent
+body = Each engineer works from a **Windows laptop** and signs in with a **PKI certificate**. They chat with their own agent: prompts go out and answers come back in the same conversation.
+
+  The agent carries **its user's certificate**, so everything it does is done as, and traceable to, that engineer.
+callout_label = One engineer, one agent
+callout = An agent never acts under a shared or anonymous identity.
+focus = eng, agents
+flows = chat
+log1 = auth | PKI cert CN=eng1 verified | c1
+log2 = prompt | eng1: "List open defects for the release" | c1
+log3 = reply | agent-1: 14 open, 3 critical. Summary below. | c2
+
+[step approve]
+short = Approve
+title = Skill and memory changes go through the Group Lead
+body = Agents follow `SKILL.md` files in each team's skill folder and a shared `MEMORY.md`. To improve one, an engineer **proposes** the change to the **{lead}**, who reviews it, approves it and **releases** it into the **{cm}**. Nothing else can write there.
+callout_label = Configuration management
+callout = Released skill and memory files are locked and versioned, like any other CM item.
+focus = eng, lead, cm
+flows = propose, release
+log1 = propose | eng2 to Group Lead: Team B SKILL.md | c1
+log2 = approve | Group Lead approved the change | c1
+log3 = release | Team B/SKILL.md into CM area (locked) | c3
+
+[step load]
+short = Load skills
+title = Every agent starts from the same released instructions
+body = When an agent starts work, it reads its team's `SKILL.md` files and the shared `MEMORY.md` from the **{cm}**. It can **read** them, but it cannot change them.
+callout_label = Same files, same behavior
+callout = Every agent on a team works from the same released instructions.
+focus = cm, agents
+flows = load
+log1 = read | Team A/SKILL.md ✓ read-only | c3
+log2 = read | MEMORY.md ✓ read-only | c3
+log3 = run-as | agent-1 as eng1 (certificate) | c2
+
+[step schedule]
+short = Schedules
+title = Scheduled tasks start agents on their own
+body = Not every run needs a prompt. A **scheduled task** in the Windows environment can start an agent at a set time, for example every weekday morning. The run still uses the owning engineer's certificate and the same released skills.
+callout_label = Owned automation
+callout = A scheduled run belongs to a named engineer, just like a chat.
+focus = tasks, agents
+flows = sched
+log1 = task | 06:00 weekdays, agent-3 | c2
+log2 = fired | 06:00:00 run started as eng3 | c2
+
+[step llm]
+short = LLM
+title = The LLM thinks; only the agent acts
+body = To think through a task, an agent calls the **{llm}** in the cloud over an **encrypted HTTPS API**. The LLM sends back plans and drafts. It has no access to our systems: anything it suggests doing is carried out by the agent, inside our environment.
+callout_label = Thinking vs. doing
+callout = The LLM only suggests. The agent acts, and only through the connections shown here.
+focus = agents, llm
+flows = llm_call
+log1 = https | out to LLM API (TLS): prompt + context | c2
+log2 = https | back: plan + draft | c2
+
+[step mcp]
+short = MCP servers
+title = MCP servers connect agents to Jira and Confluence
+body = **MCP servers** run in the same domain as the agents. `{mcpj}` and `{mcpc}` give agents two-way access to **Jira** and **Confluence**: search issues, read pages, post updates. Agents also have a two-way link to **Email**.
+callout_label = One door per system
+callout = Agents never hold Jira or Confluence credentials. Each MCP server is the single, controlled way in.
+focus = agents, mcpj, mcpc, jira, conf, mail
+flows = mcp_jira, mcp_conf, jira_app, conf_app, email
+log1 = mcp | jira: search open defects ✓ | c4
+log2 = mcp | confluence: read release page ✓ | c4
+log3 = email | draft summary to eng1 ✓ | c4
+
+[step reference]
+short = Reference data
+title = Reference data is read-only
+body = `{mcpd}` gives agents access to the user-defined **{ref}**: **SOPs**, **technical documents** and **historical records and logs**. Agents only **read** from them. Any attempt to write there is refused.
+callout_label = Look, don't touch
+callout = Agents can learn from years of documents and logs without any risk of changing them.
+focus = agents, mcpd, ref
+flows = mcp_docs, ref_read
+log1 = mcp | docs: read SOPs/release.md ✓ | ro
+log2 = mcp | docs: read history/2025 logs ✓ | ro
+log3 = mcp | docs: write SOPs/... ✗ read-only | err
+
+[step outputs]
+short = Outputs
+title = Outputs land in one shared directory
+body = The **{out}** is the **only path agents can write to**, with a folder per user. Each engineer sets their agent's write directory and **reviews** what it produces. A **Metrics & Tool Usage** folder tracks skills used, time saved and customer value.
+callout_label = Agent-generated, not CM
+callout = Outputs are drafts until an engineer reviews them. Nothing an agent writes becomes a CM item on its own.
+focus = eng, agents, out
+flows = write, review
+log1 = write | /shared/out/eng1/defect-summary.md | c5
+log2 = metrics | skill used · time saved · value | c5
+log3 = review | eng1 opened output | c1
+</script>
+<style>
+  :root{
+    --bg:#0b0f1a; --bg2:#111726; --panel:rgba(15,20,34,.9); --line:rgba(255,255,255,.09); --line2:rgba(255,255,255,.17);
+    --text:#e7ecf5; --muted:#93a0b6; --dim:#6a7489; --node:#141b2c; --group:rgba(255,255,255,.025);
+    /* the six categories: people, agents, CM-controlled, connected systems, agent output, read-only */
+    --c1:#ff9a62; --c2:#2dd4bf; --c3:#5b9dff; --c4:#a6e35c; --c5:#c58bff; --ro:#a3afc2;
+    /* interface only (edit bar, warnings), never used in the diagram */
+    --err:#ff7a9c; --warn:#ffb454; --ok:#6ee7a8;
+    --display: Bahnschrift, "DIN Alternate", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+    --sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: "Cascadia Mono", Consolas, ui-monospace, "SF Mono", Menlo, monospace;
+    --ease: cubic-bezier(.2,.8,.2,1);
+    color-scheme: dark;
+  }
+  :root[data-theme="light"]{
+    --bg:#eef1f5; --bg2:#e3e8ef; --panel:rgba(255,255,255,.94); --line:rgba(15,23,42,.10); --line2:rgba(15,23,42,.22);
+    --text:#121826; --muted:#465065; --dim:#667186; --node:#ffffff; --group:rgba(15,23,42,.03);
+    --c1:#a8480a; --c2:#0f766e; --c3:#1d4ed8; --c4:#4d7c0f; --c5:#7e22ce; --ro:#546478;
+    --err:#be123c; --warn:#b45309; --ok:#15803d;
+    color-scheme: light;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hidden}
+  button{font:inherit;color:inherit}
+  :focus-visible{outline:2px solid var(--c3);outline-offset:2px}
+
+  #stage{position:fixed;inset:0}
+  #dia{width:100%;height:100%;display:block;cursor:grab;touch-action:none;user-select:none}
+  #dia.drag{cursor:grabbing}
+
+  header{position:fixed;left:0;top:0;padding:20px 24px 30px;max-width:calc(100% - 406px);pointer-events:none;background:linear-gradient(var(--bg) 65%,transparent)}
+  header .kicker{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  header h1{font-family:var(--display);font-weight:600;font-size:clamp(20px,2.1vw,30px);letter-spacing:-.005em;margin:6px 0 4px;line-height:1.15}
+  header p{margin:0;color:var(--muted);font-size:13.5px}
+
+  #panel{position:fixed;right:16px;top:16px;bottom:96px;width:390px;background:var(--panel);backdrop-filter:blur(10px);
+    border:1px solid var(--line);border-radius:12px;padding:20px 22px;overflow:auto;display:flex;flex-direction:column;gap:12px}
+  #stepno{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  #stepno b{color:var(--text);font-weight:600}
+  #panel h2{font-family:var(--display);font-weight:600;font-size:22px;line-height:1.2;margin:0}
+  #body{font-size:14.5px;line-height:1.6;color:var(--text)}
+  #body p{margin:0 0 .7em}
+  #body code,.log code{font-family:var(--mono);font-size:12.5px;background:var(--line);padding:1px 5px;border-radius:4px}
+  .callout{border-left:2px solid var(--accent,var(--c3));padding:6px 0 6px 12px;font-size:13.5px;color:var(--muted);line-height:1.5}
+  .callout .k{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent,var(--c3));margin-bottom:3px}
+  .back{align-self:flex-start;background:none;border:1px solid var(--line2);border-radius:6px;padding:4px 10px;min-height:32px;font-size:12px;color:var(--muted);cursor:pointer}
+  .back:hover{color:var(--text)}
+
+  /* signature: an example run log that types out what each step looks like in practice */
+  .log{border:1px solid var(--line);border-radius:8px;background:var(--bg2);overflow:hidden;flex:none}
+  .logh{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);padding:6px 10px;border-bottom:1px solid var(--line)}
+  .ll{font-family:var(--mono);font-size:11.5px;line-height:1.45;padding:3px 10px;color:var(--text);display:flex;gap:8px;animation:lin .35s var(--ease) both;animation-delay:var(--d,0ms)}
+  .ll:first-of-type{margin-top:4px} .ll:last-child{margin-bottom:4px}
+  .ll b{flex:none;width:7.5ch;font-weight:600;color:var(--lc,var(--muted))}
+  .ll span{min-width:0;overflow-wrap:anywhere}
+  @keyframes lin{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  #legend{margin-top:auto;border-top:1px solid var(--line);padding-top:12px;display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted)}
+  #legend span{display:inline-flex;align-items:center;gap:6px;transition:opacity .25s var(--ease)}
+  #legend i{width:10px;height:10px;border-radius:2px;background:currentColor;display:inline-block}
+  #legend .off{opacity:.35}
+  #legend .dash{width:100%;display:flex;gap:6px;align-items:center}
+  #legend .dash u{display:inline-block;width:18px;border-top:2px dashed currentColor}
+
+  /* editing */
+  .field{display:flex;flex-direction:column;gap:4px}
+  .field label{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+  .field [contenteditable]{border:1px dashed var(--line2);border-radius:6px;padding:6px 8px;font-size:14px;line-height:1.5;white-space:pre-wrap;min-height:1.6em;outline:none}
+  .field [contenteditable]:focus{border-style:solid;border-color:var(--warn)}
+  #editbar{display:none;position:fixed;left:50%;bottom:92px;transform:translateX(-50%);background:var(--warn);color:#111;border-radius:8px;padding:6px 8px 6px 14px;
+    font-size:13px;align-items:center;gap:10px;box-shadow:0 6px 24px rgba(0,0,0,.3);z-index:5}
+  #editbar button{background:rgba(0,0,0,.12);border:0;border-radius:6px;padding:4px 10px;min-height:32px;cursor:pointer;font-size:12.5px}
+  #editbar button:hover{background:rgba(0,0,0,.22)}
+  .editing #editbar{display:flex} .editing #hint{display:none}
+  .editing #dia .node, .editing #dia .flab, .editing #dia .glab{cursor:text}
+
+  #dock{position:fixed;left:16px;right:16px;bottom:16px;height:64px;background:var(--panel);backdrop-filter:blur(10px);border:1px solid var(--line);
+    border-radius:12px;display:flex;align-items:center;gap:10px;padding:0 12px}
+  #dock > button, #tools button{height:38px;min-width:38px;border-radius:8px;border:1px solid var(--line);background:transparent;cursor:pointer;color:var(--muted);padding:0 10px}
+  #dock > button:hover, #tools button:hover{color:var(--text);border-color:var(--line2)}
+  #rail{flex:1;display:flex;gap:6px;height:38px;min-width:0}
+  .chap{flex:1;border:0;background:none;padding:0;cursor:pointer;display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:0;color:var(--dim)}
+  .chap .seg{height:4px;border-radius:2px;background:var(--line2);position:relative;overflow:hidden}
+  .chap .seg i{position:absolute;inset:0;width:0;background:var(--text)}
+  .chap.done .seg i{width:100%;background:var(--muted)}
+  .chap span{font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left}
+  .chap.on span{color:var(--text)} .chap.done span{color:var(--muted)}
+  #tools{display:flex;gap:6px}
+  #hint{position:fixed;left:24px;bottom:90px;font-family:var(--mono);font-size:10.5px;color:var(--dim);pointer-events:none}
+  #hint kbd{font-family:inherit;border:1px solid var(--line2);border-radius:4px;padding:0 4px;color:var(--muted)}
+
+  #tip{position:fixed;pointer-events:none;background:var(--panel);border:1px solid var(--line2);border-radius:8px;padding:8px 10px;font-size:12.5px;max-width:260px;
+    line-height:1.45;opacity:0;transition:opacity .15s var(--ease);z-index:4}
+  #tip b{display:block;font-family:var(--display);font-weight:600;font-size:13.5px;margin-bottom:2px}
+  #banner{position:fixed;left:50%;bottom:142px;transform:translateX(-50%);background:var(--err);color:#111;border-radius:8px;padding:8px 14px;font-size:13px;display:none;z-index:6;max-width:80vw}
+  #drop{position:fixed;inset:0;border:3px dashed var(--c3);background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;font-size:20px;z-index:7;color:#fff}
+  .dropping #drop{display:flex}
+
+  /* SVG diagram */
+  .grp rect{fill:var(--group);stroke:var(--line2);stroke-dasharray:4 4}
+  .glab{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;fill:var(--muted)}
+  .node{cursor:pointer;transition:opacity .35s var(--ease)}
+  .node rect.box{fill:var(--node);stroke:var(--line2);stroke-width:1}
+  .node rect.bar{fill:var(--col)}
+  .node .nm{font-family:var(--display);font-weight:600;font-size:16px;fill:var(--text)}
+  .node .sb{font-family:var(--mono);font-size:11px;fill:var(--muted)}
+  .node.stack .sb{fill:var(--col);font-size:12.5px}
+  .node:hover rect.box, .node.sel rect.box{stroke:var(--col);stroke-width:1.5}
+  .flow{transition:opacity .35s var(--ease)}
+  .flow path.ln{fill:none;stroke:var(--col);stroke-width:1.6;opacity:.85}
+  .flow.ro path.ln{stroke-dasharray:7 5}
+  .flow.idle path.ln{stroke-dasharray:3 5;opacity:.5}
+  .flow path.hit{fill:none;stroke:transparent;stroke-width:16;pointer-events:stroke;cursor:pointer}
+  .flab{font-family:var(--mono);font-size:11px;fill:var(--col);paint-order:stroke;stroke:var(--bg);stroke-width:4px;stroke-linejoin:round;cursor:pointer}
+  .dim{opacity:.22}
+  .grp{transition:opacity .35s var(--ease)}
+  .dot{fill:var(--col)}
+
+  body.present header p, body.present #hint{display:none}
+  body.present #panel h2{font-size:28px} body.present #body{font-size:17px} body.present .callout{font-size:15px} body.present .ll{font-size:13.5px}
+
+  @media (max-width:1100px){ #hint{display:none} }
+  @media (max-width:860px){
+    header{padding:12px 16px 22px;max-width:100%} header p{display:none}
+    #panel{left:12px;right:12px;top:auto;bottom:86px;width:auto;max-height:44vh;padding:14px}
+    .chap span{display:none} #dock{left:12px;right:12px;height:58px} #tools .opt{display:none}
+    .log{display:none}
+  }
+  @media (prefers-reduced-motion:reduce){ .node,.flow,.grp,#legend span,#tip{transition:none} .ll{animation:none} }
+  @media print{
+    :root{--bg:#fff;--panel:#fff;--text:#111;--muted:#444;--node:#fff;--line2:#999}
+    #dock,#hint,#editbar,#tip{display:none!important}
+    #panel{position:static;width:auto;border:0}
+    #stage{position:relative;height:60vh}
+    html,body{overflow:visible}
+  }
+</style>
+</head>
+<body>
+<div id="stage"><svg id="dia" role="img" aria-label="Architecture diagram of the governed agent platform: engineers, agents, released skills, LLM, MCP servers, connected systems, reference data and shared output"></svg></div>
+
+<header>
+  <div class="kicker" id="kicker"></div>
+  <h1 id="htitle"></h1>
+  <p id="hsub"></p>
+</header>
+
+<aside id="panel" aria-live="polite"></aside>
+
+<div id="hint"><kbd>←</kbd><kbd>→</kbd> steps · <kbd>Space</kbd> play · <kbd>drag</kbd> pan · <kbd>scroll</kbd> zoom · <kbd>R</kbd> reset · <kbd>E</kbd> edit · <kbd>O</kbd> open .txt · <kbd>T</kbd> theme · <kbd>P</kbd> present</div>
+
+<nav id="dock" aria-label="Chapters">
+  <button id="prev" title="Previous step (←)" aria-label="Previous step">←</button>
+  <button id="play" title="Play / pause (Space)" aria-label="Play">▶</button>
+  <div id="rail"></div>
+  <button id="next" title="Next step (→)" aria-label="Next step">→</button>
+  <div id="tools">
+    <button id="bEdit" title="Edit text (E)">Edit</button>
+    <button id="bOpen" class="opt" title="Load text from a .txt file (O)">Open .txt</button>
+    <button id="bTheme" class="opt" title="Light / dark (T)" aria-label="Toggle theme">◐</button>
+  </div>
+</nav>
+
+<div id="editbar" role="toolbar" aria-label="Editing">
+  <span>Editing. Click any text, box or arrow label.</span>
+  <button id="bSave" title="Save a new copy of this page (Ctrl+S)">Save as HTML</button>
+  <button id="bExport" title="Save the text as a .txt file">Export .txt</button>
+  <button id="bDone">Done</button>
+</div>
+<div id="tip"></div>
+<div id="banner" role="alert"></div>
+<div id="drop">Drop a .txt file to load its text</div>
+<input id="file" type="file" accept=".txt,text/plain" hidden>
+
+<script>
+"use strict";
+// Snapshot of the page as shipped. "Save as HTML" swaps only the content block in this copy.
+const PRISTINE = "<!doctype html>\n" + document.documentElement.outerHTML;
+
+/* =====================================================================
+   LAYOUT: where things sit (diagram units). Words live in the content
+   block at the top of the file, not here.
+   Grid: columns every 360 (boxes 200 wide, 160 gap for arrow labels).
+   ===================================================================== */
+const GROUPS = {
+  env:   {x:360, y:188, w:630, h:552, la:"r"},   // la:"r" = label on the right, clear of the lines that enter from above
+  mcpz:  {x:730, y:225, w:240, h:360},
+  cloud: {x:1090,y:0,   w:240, h:136},
+};
+// col: c1 people, c2 agents, c3 CM-controlled, c4 connected systems, c5 agent output, ro read-only
+const NODES = {
+  lead:  {x:30,   y:40,  w:200, h:68,  col:"c1"},
+  cm:    {x:390,  y:40,  w:200, h:68,  col:"c3"},
+  llm:   {x:1110, y:40,  w:200, h:68,  col:"c2"},
+
+  eng:   {x:30,   y:382, w:200, h:68,  col:"c1"},
+  agents:{x:390,  y:262, w:200, h:308, col:"c2", stack:true},
+  mcpj:  {x:750,  y:262, w:200, h:68,  col:"c4"},
+  mcpc:  {x:750,  y:382, w:200, h:68,  col:"c4"},
+  mcpd:  {x:750,  y:502, w:200, h:68,  col:"c4"},
+  jira:  {x:1110, y:262, w:200, h:68,  col:"c4"},
+  conf:  {x:1110, y:382, w:200, h:68,  col:"c4"},
+  ref:   {x:1110, y:502, w:200, h:68,  col:"ro"},
+
+  out:   {x:30,   y:600, w:200, h:68,  col:"c5"},
+  tasks: {x:750,  y:650, w:200, h:68,  col:"c2"},
+  mail:  {x:1110, y:740, w:200, h:68,  col:"c4"},
+};
+// fs/ts = side the line leaves/arrives (l r t b), fo/to = offset along that side from its centre,
+// via = corner points when the route has to bend around something, both = traffic both ways,
+// ro = read-only (dashed), ls:"l" = put a vertical line's label on its left,
+// lp = how far along its longest run the label sits (0 to 1, default .5)
+const FLOWS = {
+  chat:     {from:"eng",   to:"agents", col:"c1", both:true, fs:"r", ts:"l"},
+  propose:  {from:"eng",   to:"lead",   col:"c1", fs:"t", ts:"b"},
+  release:  {from:"lead",  to:"cm",     col:"c1", fs:"r", ts:"l"},
+  load:     {from:"cm",    to:"agents", col:"c2", fs:"b", ts:"t", fo:-40, to_:-40, ls:"l", lp:.75},
+  sched:    {from:"tasks", to:"agents", col:"c2", fs:"l", ts:"b", to_:60, via:[[550,684]]},
+  llm_call: {from:"agents",to:"llm",    col:"c2", both:true, fs:"t", ts:"b", fo:40, to_:0, via:[[530,156],[1210,156]]},
+  mcp_jira: {from:"agents",to:"mcpj",   col:"c4", both:true, fs:"r", ts:"l", fo:-120},
+  mcp_conf: {from:"agents",to:"mcpc",   col:"c4", both:true, fs:"r", ts:"l"},
+  mcp_docs: {from:"agents",to:"mcpd",   col:"c4", both:true, fs:"r", ts:"l", fo:120},
+  jira_app: {from:"mcpj",  to:"jira",   col:"c4", both:true, fs:"r", ts:"l"},
+  conf_app: {from:"mcpc",  to:"conf",   col:"c4", both:true, fs:"r", ts:"l"},
+  ref_read: {from:"ref",   to:"mcpd",   col:"ro", ro:true,   fs:"l", ts:"r"},
+  email:    {from:"agents",to:"mail",   col:"c4", both:true, fs:"b", ts:"l", fo:0, via:[[490,774]]},
+  write:    {from:"agents",to:"out",    col:"c5", fs:"b", ts:"r", fo:-60, via:[[430,634]]},
+  review:   {from:"out",   to:"eng",    col:"c1", fs:"t", ts:"b"},
+};
+const LEGEND = [["c1","People · human actions"],["c2","Agents · agent actions"],["c3","CM-controlled files"],["c4","Connected systems"],["c5","Agent output · not CM"],["ro","Read-only"]];
+const LOG_COLORS = {c1:1,c2:1,c3:1,c4:1,c5:1,ro:1,err:1};
+const STEP_SECONDS = 8;
+
+/* =====================================================================
+   Content: parse the plain-text block (same format as an imported .txt)
+   ===================================================================== */
+const ORDER = { meta:["kicker","title","subtitle"], group:["name"], node:["name","sub","detail"], flow:["label","detail"],
+  step:["short","title","body","callout_label","callout","focus","flows","log1","log2","log3","log4"] };
+const LOGKEYS = ["log1","log2","log3","log4"];
+function parseText(src){
+  const C={meta:{},group:{},node:{},flow:{},steps:[]}, warn=[];
+  let obj=null, key=null, blank=false;
+  src.replace(/<\\\/script/gi,"</script").split(/\r?\n/).forEach((raw,i)=>{
+    const line=raw.replace(/\s+$/,"");
+    if(line===""){ if(key) blank=true; return; }
+    if(line[0]==="#") return;
+    let m;
+    if(/^\s/.test(line)){                        // continuation of the previous value
+      if(!key){ warn.push(`Line ${i+1}: indented text with nothing above it`); return; }
+      obj[key]+= (blank?"\n\n":(obj[key]?" ":"")) + line.trim(); blank=false; return;
+    }
+    blank=false;
+    if((m=line.match(/^\[\s*(meta|group|node|flow|step)\s*([\w-]*)\s*\]$/i))){
+      const t=m[1].toLowerCase(), id=m[2]; key=null;
+      if(t==="meta") obj=C.meta;
+      else if(!id){ warn.push(`Line ${i+1}: [${t}] needs an id, like [${t} name]`); obj={}; }
+      else if(t==="step"){ obj={id}; C.steps.push(obj); }
+      else obj=C[t][id]=C[t][id]||{};
+      return;
+    }
+    if((m=line.match(/^([A-Za-z_][\w-]*)\s*=\s?(.*)$/))){
+      if(!obj){ warn.push(`Line ${i+1}: "${m[1]}" is above the first [section]`); return; }
+      key=m[1].toLowerCase(); obj[key]=m[2].trim(); return;
+    }
+    warn.push(`Line ${i+1} not understood: "${line.slice(0,40)}"`);
+  });
+  return {C,warn};
+}
+function serialize(C){
+  const val=v=>String(v??"").split(/\n{2,}/).map((p,i)=>(i?"\n  ":"")+p.replace(/\s*\n\s*/g," ").trim()).join("\n");
+  const sec=(head,o,keys)=>{ let s=`[${head}]\n`; const ks=[...keys,...Object.keys(o).filter(k=>!keys.includes(k)&&k!=="id")];
+    ks.forEach(k=>{ if(o[k]!==undefined&&o[k]!=="") s+=`${k} = ${val(o[k])}\n`; }); return s; };
+  const out=[sec("meta",C.meta,ORDER.meta)];
+  for(const t of ["group","node","flow"]) for(const id in C[t]) out.push(sec(`${t} ${id}`,C[t][id],ORDER[t]));
+  C.steps.forEach(s=>out.push(sec(`step ${s.id}`,s,ORDER.step)));
+  return out.join("\n").replace(/<\/script/gi,"<\\/script");
+}
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
+function rich(s){
+  return String(s??"").split(/\n{2,}/).map(p=>"<p>"+esc(p)
+    .replace(/\{([\w-]+)\}/g,(m,id)=>esc(nm(id)))
+    .replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/`(.+?)`/g,"<code>$1</code>")+"</p>").join("");
+}
+const nm=id=>C.node[id]?.name || id;
+const list=s=>String(s||"").split(/[,\s]+/).filter(Boolean);
+const flowsOf=s=>{ const l=list(s.flows); return l.includes("all")?Object.keys(FLOWS):l; };
+
+let C, step=0, sel=null, editing=false, dirty=false, playing=false, stepStart=0, sourceName="";
+function load(text, from){
+  const r=parseText(text);
+  if(!r.C.steps.length){ banner("No [step ...] sections found"+(from?` in ${from}`:"")+". Nothing was changed."); return false; }
+  C=r.C; sourceName=from||"";
+  const bad=[];
+  C.steps.forEach((s,i)=>{
+    list(s.focus).forEach(id=>{ if(id!=="all"&&!NODES[id]) bad.push(`step ${i+1}: no node "${id}"`); });
+    list(s.flows).forEach(id=>{ if(id!=="all"&&!FLOWS[id]) bad.push(`step ${i+1}: no flow "${id}"`); });
+    LOGKEYS.forEach(k=>{ const c=(s[k]||"").split("|")[2]; if(s[k]&&c&&!LOG_COLORS[c.trim()]) bad.push(`step ${i+1} ${k}: colour "${c.trim()}" is not one of c1 c2 c3 c4 c5 ro err`); });
+  });
+  const msgs=[...r.warn,...bad];
+  if(msgs.length) banner(msgs.slice(0,3).join(" · ")+(msgs.length>3?` (+${msgs.length-3} more)`:""));
+  build(); go(Math.min(step,C.steps.length-1)); return msgs;
+}
+
+/* =====================================================================
+   Diagram (SVG)
+   ===================================================================== */
+const svg=document.getElementById("dia"), NS="http://www.w3.org/2000/svg";
+const el=(t,a={},p)=>{const e=document.createElementNS(NS,t); for(const k in a) e.setAttribute(k,a[k]); if(p) p.appendChild(e); return e;};
+let flowEls={}, nodeEls={}, groupEls={}, dotsLayer;
+
+const SIDE={ l:(n,o)=>[n.x,n.y+n.h/2+o], r:(n,o)=>[n.x+n.w,n.y+n.h/2+o], t:(n,o)=>[n.x+n.w/2+o,n.y], b:(n,o)=>[n.x+n.w/2+o,n.y+n.h] };
+const isH=s=>s==="l"||s==="r";
+function elbow(p,q,exitH,arriveH){
+  if(exitH&&arriveH){ const mx=(p[0]+q[0])/2; return [[mx,p[1]],[mx,q[1]]]; }
+  if(!exitH&&!arriveH){ const my=(p[1]+q[1])/2; return [[p[0],my],[q[0],my]]; }
+  return exitH ? [[q[0],p[1]]] : [[p[0],q[1]]];
+}
+function route(f){                      // orthogonal connector, edge to edge, with optional corner points
+  const a=NODES[f.from], b=NODES[f.to];
+  const A={x:a.x+a.w/2,y:a.y+a.h/2}, B={x:b.x+b.w/2,y:b.y+b.h/2};
+  const horiz=Math.abs(B.x-A.x)>=Math.abs(B.y-A.y);
+  const fs=f.fs||(horiz?(B.x>A.x?"r":"l"):(B.y>A.y?"b":"t"));
+  const ts=f.ts||(horiz?(B.x>A.x?"l":"r"):(B.y>A.y?"t":"b"));
+  const pts=[SIDE[fs](a,f.fo||0),...(f.via||[]),SIDE[ts](b,f.to_||0)], out=[pts[0]];
+  for(let i=1;i<pts.length;i++){
+    const p=out[out.length-1], q=pts[i];
+    if(Math.abs(p[0]-q[0])>1&&Math.abs(p[1]-q[1])>1){
+      const last=i===pts.length-1;
+      const exitH=i===1?isH(fs):(out.length>1&&Math.abs(out[out.length-1][1]-out[out.length-2][1])<1?false:true);
+      out.push(...elbow(p,q,exitH,last?isH(ts):!exitH));
+    }
+    out.push(q);
+  }
+  return out;
+}
+function pathD(p,r=10){
+  let d=`M${p[0][0]},${p[0][1]}`;
+  for(let i=1;i<p.length-1;i++){
+    const [x0,y0]=p[i-1],[x1,y1]=p[i],[x2,y2]=p[i+1];
+    const r1=Math.min(r,Math.hypot(x1-x0,y1-y0)/2,Math.hypot(x2-x1,y2-y1)/2);
+    const ax=x1-Math.sign(x1-x0)*r1, ay=y1-Math.sign(y1-y0)*r1, bx=x1+Math.sign(x2-x1)*r1, by=y1+Math.sign(y2-y1)*r1;
+    d+=` L${ax},${ay} Q${x1},${y1} ${bx},${by}`;
+  }
+  const e=p[p.length-1]; return d+` L${e[0]},${e[1]}`;
+}
+function labelSpot(pts,f){                // middle of the longest straight run: above a horizontal line, beside a vertical one
+  let best=null;
+  for(let i=1;i<pts.length;i++){ const L=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]); if(!best||L>best.L) best={L,a:pts[i-1],b:pts[i]}; }
+  const u=f.lp??.5, mx=best.a[0]+(best.b[0]-best.a[0])*u, my=best.a[1]+(best.b[1]-best.a[1])*u, h=Math.abs(best.a[1]-best.b[1])<2;
+  if(h) return {x:mx,y:my-8,anchor:"middle"};
+  return f.ls==="l" ? {x:mx-8,y:my+4,anchor:"end"} : {x:mx+8,y:my+4,anchor:"start"};
+}
+function build(){
+  svg.textContent="";
+  const defs=el("defs",{},svg);
+  ["c1","c2","c3","c4","c5","ro"].forEach(c=>{
+    const m=el("marker",{id:"ar-"+c,viewBox:"0 0 10 10",refX:"9",refY:"5",markerWidth:"7",markerHeight:"7",orient:"auto-start-reverse"},defs);
+    el("path",{d:"M0,0 L10,5 L0,10 z",style:`fill:var(--${c})`},m);
+  });
+  const gl=el("g",{},svg), fl=el("g",{},svg), nl=el("g",{},svg); dotsLayer=el("g",{},svg);
+  groupEls={};
+  for(const id in GROUPS){ const g=GROUPS[id], G=el("g",{class:"grp"},gl); groupEls[id]=G;
+    el("rect",{x:g.x,y:g.y,width:g.w,height:g.h,rx:14},G);
+    const t=el("text",{x:g.la==="r"?g.x+g.w-16:g.x+16,y:g.y+26,class:"glab","text-anchor":g.la==="r"?"end":"start","data-label":`group.${id}.name`},G); t.textContent=C.group[id]?.name||id;
+    t.addEventListener("click",()=>{ if(editing) select("group",id); }); }
+  flowEls={};
+  for(const id in FLOWS){ const f=FLOWS[id]; if(!NODES[f.from]||!NODES[f.to]) continue;
+    const pts=route(f), d=pathD(pts), G=el("g",{class:"flow"+(f.ro?" ro":""),style:`--col:var(--${f.col})`},fl);
+    const p=el("path",{class:"ln",d,"marker-end":`url(#ar-${f.col})`},G);
+    if(f.both) p.setAttribute("marker-start",`url(#ar-${f.col})`);
+    const hit=el("path",{class:"hit",d},G); hit.addEventListener("click",e=>{e.stopPropagation(); select("flow",id);});
+    const spot=labelSpot(pts,f);
+    const t=el("text",{class:"flab",x:spot.x,y:spot.y,"text-anchor":spot.anchor,tabindex:"0",role:"button","data-label":`flow.${id}.label`},G);
+    t.textContent=C.flow[id]?.label||"";
+    t.setAttribute("aria-label",(C.flow[id]?.label||id)+", details");
+    t.addEventListener("click",e=>{e.stopPropagation(); select("flow",id);});
+    t.addEventListener("keydown",e=>{ if(e.key==="Enter") select("flow",id); });
+    flowEls[id]={g:G,p,len:p.getTotalLength(),f,dots:[]};
+  }
+  nodeEls={};
+  for(const id in NODES){ const n=NODES[id], G=el("g",{class:"node"+(n.stack?" stack":""),tabindex:"0",role:"button",style:`--col:var(--${n.col})`},nl);
+    el("rect",{class:"box",x:n.x,y:n.y,width:n.w,height:n.h,rx:9},G);
+    el("rect",{class:"bar",x:n.x,y:n.y+12,width:3,height:n.h-24,rx:1.5},G);
+    const top=n.stack?n.y+36:n.y+n.h/2-3;
+    el("text",{class:"nm",x:n.x+18,y:top,"data-label":`node.${id}.name`},G);
+    el("text",{class:"sb",x:n.x+18,y:n.y+n.h/2+16,"data-label":`node.${id}.sub`},G);
+    paintNode(id);
+    G.setAttribute("aria-label",nm(id));
+    G.addEventListener("click",e=>{e.stopPropagation(); select("node",id);});
+    G.addEventListener("keydown",e=>{ if(e.key==="Enter"){ select("node",id); }});
+    G.addEventListener("pointerenter",()=>tipShow(id)); G.addEventListener("pointerleave",tipHide);
+    nodeEls[id]=G;
+  }
+  setHeader(); buildRail();
+  const lg=document.createElement("div"); lg.id="legend";
+  lg.innerHTML=LEGEND.map(([c,t])=>`<span data-c="${c}" style="color:var(--${c})"><i></i>${esc(t)}</span>`).join("")+
+    `<span class="dash" style="color:var(--ro)"><u></u>Dashed arrow: read-only</span>`;
+  legendEl=lg;
+}
+let legendEl;
+// Fill a node's name and sub-line. Tall "stack" nodes show one line per " · " part.
+function paintNode(id){
+  const n=NODES[id], G=svg.querySelector(`[data-label="node.${id}.name"]`)?.parentNode; if(!G) return;
+  const t1=G.querySelector(".nm"), t2=G.querySelector(".sb"), sub=C.node[id]?.sub||"";
+  t1.textContent=nm(id); fitText(t1,n.w-30,16);
+  t2.textContent="";
+  if(n.stack){
+    const parts=sub.split(/\s*·\s*/).filter(Boolean);
+    parts.forEach((part,i)=>{ const s=el("tspan",{x:n.x+18,y:n.y+n.h/2+(i-(parts.length-1)/2)*56+4},t2); s.textContent=part; });
+    t2.style.fontSize="12.5px"; let s=12.5; while(s>9 && Math.max(...[...t2.querySelectorAll("tspan")].map(x=>x.getComputedTextLength()))>n.w-30){ s-=.5; t2.style.fontSize=s+"px"; }
+  } else { t2.textContent=sub; fitText(t2,n.w-30,11); }
+}
+// Shrink a label until it fits its box, so longer names never spill out.
+function fitText(t,max,size){ t.style.fontSize=size+"px"; let s=size; while(s>8 && t.getComputedTextLength()>max){ s-=.5; t.style.fontSize=s+"px"; } }
+function setHeader(){
+  document.getElementById("kicker").textContent=C.meta.kicker||"";
+  document.getElementById("htitle").textContent=C.meta.title||"";
+  document.getElementById("hsub").textContent=C.meta.subtitle||"";
+  if(C.meta.title) document.title=C.meta.title;
+}
+
+/* camera: animate the SVG viewBox toward the focus of each step */
+const view={x:0,y:0,w:1200,h:600}; let goal=null;
+function fit(ids){
+  const all=ids.includes("all")||!ids.length; let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+  const take=(x,y,w,h)=>{x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x+w);y1=Math.max(y1,y+h);};
+  if(all){ for(const id in GROUPS){const g=GROUPS[id];take(g.x,g.y,g.w,g.h);} for(const id in NODES){const n=NODES[id];take(n.x,n.y,n.w,n.h);} }
+  else ids.forEach(id=>{const n=NODES[id]; if(n) take(n.x,n.y,n.w,n.h);});
+  const pad=all?30:90; x0-=pad;y0-=pad;x1+=pad;y1+=pad;
+  // keep clear of the side panel and dock: the visible diagram area is the stage minus those
+  const r=stageBox(), aspect=r.w/r.h; let w=x1-x0,h=y1-y0;
+  if(w/h<aspect) w=h*aspect; else h=w/aspect;
+  const cx=(x0+x1)/2, cy=(y0+y1)/2;
+  const sw=w*innerWidth/r.w, sh=h*innerHeight/r.h;          // whole-screen viewBox size
+  return {x:cx-(r.x+r.w/2)*sw/innerWidth, y:cy-(r.y+r.h/2)*sh/innerHeight, w:sw, h:sh};
+}
+function stageBox(){
+  const narrow=innerWidth<=860, top=narrow?70:110;
+  const bottom=narrow?innerHeight*.44+100:96;
+  const right=narrow?0:420;
+  return {x:0,y:top,w:Math.max(200,innerWidth-right),h:Math.max(160,innerHeight-top-bottom)};
+}
+function applyView(){ svg.setAttribute("viewBox",`${view.x} ${view.y} ${view.w} ${view.h}`); }
+
+/* =====================================================================
+   Steps, panel, selection
+   ===================================================================== */
+const rail=document.getElementById("rail"), panel=document.getElementById("panel");
+function buildRail(){
+  rail.textContent="";
+  C.steps.forEach((s,i)=>{ const b=document.createElement("button"); b.className="chap"; b.title=s.title||"";
+    b.innerHTML=`<div class="seg"><i></i></div><span>${String(i+1).padStart(2,"0")} ${esc(s.short||s.id)}</span>`;
+    b.onclick=()=>{setPlay(false);go(i)}; rail.appendChild(b); });
+}
+function go(i){
+  step=Math.max(0,Math.min(C.steps.length-1,i)); sel=null; stepStart=performance.now();
+  const s=C.steps[step], focus=list(s.focus), flows=flowsOf(s), all=focus.includes("all");
+  for(const id in nodeEls) nodeEls[id].classList.toggle("dim",!(all||focus.includes(id)));
+  for(const id in groupEls){ const g=GROUPS[id];   // a boundary stays lit while something inside it is in focus
+    const live=all||focus.some(n=>{const b=NODES[n]; return b&&b.x>=g.x&&b.y>=g.y&&b.x+b.w<=g.x+g.w&&b.y+b.h<=g.y+g.h;});
+    groupEls[id].classList.toggle("dim",!live); }
+  for(const id in flowEls){ const on=flows.includes(id); flowEls[id].g.classList.toggle("dim",!on); flowEls[id].g.classList.toggle("idle",!on); }
+  const cols=new Set([...(all?Object.keys(NODES):focus).map(id=>NODES[id]?.col), ...flows.map(id=>FLOWS[id]?.col)]);
+  legendEl.querySelectorAll("span[data-c]").forEach(sp=>sp.classList.toggle("off",!cols.has(sp.dataset.c)));
+  [...rail.children].forEach((c,j)=>{c.classList.toggle("on",j===step);c.classList.toggle("done",j<step);});
+  goal=fit(focus); markSel(); renderPanel(); syncDots();
+}
+function select(kind,id){
+  sel = (!kind || (!editing && sel?.kind===kind && sel.id===id)) ? null : {kind,id};
+  markSel(); renderPanel();
+}
+const clearSel=()=>select(null);
+function markSel(){ for(const k in nodeEls) nodeEls[k].classList.toggle("sel",sel?.kind==="node"&&sel.id===k); }
+function logHTML(s){
+  const rows=LOGKEYS.map(k=>s[k]).filter(Boolean).map((v,i)=>{
+    const [tag,txt,col]=v.split("|").map(x=>x.trim()), c=LOG_COLORS[col]?col:"";
+    return `<div class="ll" style="--d:${i*320+200}ms;${c?`--lc:var(--${c})`:""}"><b>${esc(tag)}</b><span>${esc(txt||"")}</span></div>`; });
+  return rows.length?`<div class="log" aria-label="Example run"><div class="logh"><span>Example run</span><span>illustrative</span></div>${rows.join("")}</div>`:"";
+}
+function renderPanel(){
+  const s=C.steps[step], n=C.steps.length;
+  let h=`<div id="stepno"><b>${String(step+1).padStart(2,"0")}</b> / ${String(n).padStart(2,"0")}</div>`;
+  const acc=`var(--${NODES[list(s.focus)[0]]?.col||"c3"})`;
+  if(editing){
+    const [kind,id,obj,keys]= sel ? [sel.kind,sel.id,C[sel.kind][sel.id]||(C[sel.kind][sel.id]={}),ORDER[sel.kind]] : ["step",s.id,s,[...ORDER.step.slice(0,5),...LOGKEYS]];
+    if(sel) h+=`<button class="back" data-back>← Back to step</button>`;
+    h+=`<div class="field"><label>Editing ${kind} “${esc(id)}”</label></div>`;
+    keys.forEach(k=>{ h+=`<div class="field"><label>${k.replace("_"," ")}</label><div contenteditable="${PLAIN}" data-k="${k}">${esc(obj[k]||"")}</div></div>`; });
+    if(!sel){ h+=`<div class="field"><label>Page heading</label></div>`;
+      ORDER.meta.forEach(k=>{ h+=`<div class="field"><label>${k}</label><div contenteditable="${PLAIN}" data-meta="${k}">${esc(C.meta[k]||"")}</div></div>`; }); }
+    panel.innerHTML=h;
+    panel.querySelectorAll("[data-k]").forEach(d=>d.addEventListener("input",()=>{ obj[d.dataset.k]=clean(d.innerText); changed(kind); }));
+    panel.querySelectorAll("[data-meta]").forEach(d=>d.addEventListener("input",()=>{ C.meta[d.dataset.meta]=clean(d.innerText); changed("meta"); }));
+  } else if(sel){
+    const o=C[sel.kind][sel.id]||{}, col=sel.kind==="node"?NODES[sel.id].col:sel.kind==="flow"?FLOWS[sel.id].col:"ro";
+    h+=`<button class="back" data-back>← Back to step</button>`;
+    h+=`<h2>${esc(sel.kind==="flow"?o.label:o.name||sel.id)}</h2>`;
+    if(o.sub) h+=`<div class="callout" style="--accent:var(--${col})"><span class="k">${esc(o.sub)}</span></div>`;
+    if(sel.kind==="flow") h+=`<div class="callout" style="--accent:var(--${col})"><span class="k">${esc(nm(FLOWS[sel.id].from))} → ${esc(nm(FLOWS[sel.id].to))}${FLOWS[sel.id].both?" · both ways":""}</span></div>`;
+    h+=`<div id="body">${rich(o.detail||"")}</div>`;
+    panel.innerHTML=h;
+  } else {
+    h+=`<h2>${esc(s.title)}</h2><div id="body">${rich(s.body)}</div>`;
+    if(s.callout) h+=`<div class="callout" style="--accent:${acc}"><span class="k">${esc(s.callout_label||"")}</span>${rich(s.callout).replace(/^<p>|<\/p>$/g,"")}</div>`;
+    h+=logHTML(s);
+    panel.innerHTML=h;
+  }
+  if(!editing) panel.appendChild(legendEl);
+  panel.querySelector("[data-back]")?.addEventListener("click",clearSel);
+  panel.scrollTop=0;
+}
+const PLAIN=(()=>{const d=document.createElement("div"); d.contentEditable="plaintext-only"; return d.contentEditable==="plaintext-only"?"plaintext-only":"true";})();
+const clean=t=>t.replace(/ /g," ").replace(/\n{3,}/g,"\n\n");
+// After an edit, update the words on screen in place (the panel field being typed in is left alone).
+function changed(kind){
+  dirty=true;
+  if(kind==="step"){ const b=rail.children[step]?.querySelector("span"); if(b) b.textContent=`${String(step+1).padStart(2,"0")} ${C.steps[step].short||C.steps[step].id}`; return; }
+  if(kind==="meta"){ setHeader(); return; }
+  svg.querySelectorAll("[data-label]").forEach(t=>{ const [k,id,f]=t.dataset.label.split(".");
+    if(k==="node") return;
+    t.textContent=C[k][id]?.[f]||(f==="name"?id:""); });
+  for(const id in NODES) paintNode(id);
+}
+
+/* =====================================================================
+   Edit, save, import
+   ===================================================================== */
+function setEditing(on){ editing=on; document.body.classList.toggle("editing",on); if(!on){ sel=null; build(); go(step); } else renderPanel(); }
+function download(name,text,type){ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([text],{type})); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500); }
+const baseName=()=>decodeURIComponent((location.pathname.split("/").pop()||"explainer.html")).replace(/\.html?$/i,"");
+function saveHTML(){
+  const open='<script type="text/plain" id="content">', i=PRISTINE.indexOf(open), j=PRISTINE.indexOf("</"+"script>",i);
+  if(i<0||j<0){ banner("Could not find the content block to save."); return; }
+  const html=PRISTINE.slice(0,i+open.length)+"\n"+serialize(C)+"\n"+PRISTINE.slice(j);
+  download(baseName()+"-edited.html",html,"text/html"); dirty=false; banner("Saved a new copy. Replace the old file with it when you're happy.",true);
+}
+function exportTxt(){ download(baseName()+".txt",serialize(C),"text/plain"); }
+function readFile(f){ if(!f) return; const r=new FileReader(); r.onload=()=>{ const m=load(String(r.result),f.name); if(m){ dirty=true; if(!m.length) banner(`Loaded text from ${f.name}. Press Ctrl+S to keep it in a new copy of this page.`,true); } }; r.readAsText(f); }
+const fileIn=document.getElementById("file"); fileIn.onchange=()=>{ readFile(fileIn.files[0]); fileIn.value=""; };
+let dragDepth=0;
+addEventListener("dragenter",e=>{ if([...e.dataTransfer.types].includes("Files")){ dragDepth++; document.body.classList.add("dropping"); } });
+addEventListener("dragleave",()=>{ if(--dragDepth<=0){ dragDepth=0; document.body.classList.remove("dropping"); } });
+addEventListener("dragover",e=>e.preventDefault());
+addEventListener("drop",e=>{ e.preventDefault(); dragDepth=0; document.body.classList.remove("dropping"); readFile(e.dataTransfer.files[0]); });
+addEventListener("beforeunload",e=>{ if(dirty){ e.preventDefault(); e.returnValue=""; } });
+
+let bannerT; function banner(msg,ok){ const b=document.getElementById("banner"); b.textContent=msg; b.style.background=ok?"var(--ok)":"var(--err)"; b.style.display="block"; clearTimeout(bannerT); bannerT=setTimeout(()=>b.style.display="none",ok?4000:9000); }
+const tip=document.getElementById("tip");
+function tipShow(id){ if(editing) return; const n=C.node[id]||{}; tip.innerHTML=`<b>${esc(nm(id))}</b>${esc(n.sub||"")}`; tip.style.opacity=1; }
+function tipHide(){ tip.style.opacity=0; }
+addEventListener("pointermove",e=>{ tip.style.left=Math.min(innerWidth-280,e.clientX+14)+"px"; tip.style.top=(e.clientY+16)+"px"; });
+
+/* =====================================================================
+   Controls
+   ===================================================================== */
+function setPlay(p){ playing=p; const b=document.getElementById("play"); b.textContent=p?"❚❚":"▶"; b.setAttribute("aria-label",p?"Pause":"Play"); stepStart=performance.now(); }
+function theme(){ const r=document.documentElement, light=r.dataset.theme!=="light"; r.dataset.theme=light?"light":"dark"; try{localStorage.setItem("explainer-theme",r.dataset.theme)}catch(e){} }
+document.getElementById("prev").onclick=()=>{setPlay(false);go(step-1)};
+document.getElementById("next").onclick=()=>{setPlay(false);go(step+1)};
+document.getElementById("play").onclick=()=>{ if(!playing&&step===C.steps.length-1) go(0); setPlay(!playing); };
+document.getElementById("bEdit").onclick=()=>setEditing(!editing);
+document.getElementById("bDone").onclick=()=>setEditing(false);
+document.getElementById("bSave").onclick=saveHTML;
+document.getElementById("bExport").onclick=exportTxt;
+document.getElementById("bOpen").onclick=()=>fileIn.click();
+document.getElementById("bTheme").onclick=theme;
+svg.addEventListener("click",()=>{ if(sel&&!editing&&!wasDrag) clearSel(); });
+
+addEventListener("keydown",e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="s"){ e.preventDefault(); saveHTML(); return; }
+  if(e.target.isContentEditable||/INPUT|TEXTAREA/.test(e.target.tagName)){ if(e.key==="Escape") e.target.blur(); return; }
+  if(e.ctrlKey||e.metaKey||e.altKey) return;
+  const k=e.key;
+  if(k==="ArrowRight"||k==="PageDown"){setPlay(false);go(step+1)}
+  else if(k==="ArrowLeft"||k==="PageUp"){setPlay(false);go(step-1)}
+  else if(k==="Home"){setPlay(false);go(0)} else if(k==="End"){setPlay(false);go(C.steps.length-1)}
+  else if(k===" "){ if(e.target.tagName==="BUTTON") return; e.preventDefault();document.getElementById("play").click()}
+  else if(k==="Escape"){ if(editing) setEditing(false); else if(sel) clearSel(); }
+  else if(k==="e"||k==="E") setEditing(!editing);
+  else if(k==="o"||k==="O") fileIn.click();
+  else if(k==="t"||k==="T") theme();
+  else if(k==="p"||k==="P") document.body.classList.toggle("present");
+  else if(k==="f"||k==="F"){ document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen?.(); }
+  else if(k==="r"||k==="R") goal=fit(list(C.steps[step].focus));
+  else if(/^[1-9]$/.test(k)){setPlay(false);go(+k-1)}
+});
+
+// Pan and zoom by moving the viewBox (clamped so the diagram can't be lost)
+let drag=null, wasDrag=false;
+svg.addEventListener("pointerdown",e=>{ if(e.target.closest(".node,.flab,.hit")) return; drag={x:e.clientX,y:e.clientY,moved:false}; svg.setPointerCapture(e.pointerId); svg.classList.add("drag"); });
+svg.addEventListener("pointermove",e=>{ if(!drag) return; const s=view.w/innerWidth, dx=e.clientX-drag.x, dy=e.clientY-drag.y;
+  if(Math.abs(dx)+Math.abs(dy)>2){ drag.moved=true; goal=null; }
+  view.x-=dx*s; view.y-=dy*s; drag.x=e.clientX; drag.y=e.clientY; clampView(); applyView(); });
+svg.addEventListener("pointerup",()=>{ wasDrag=!!drag?.moved; drag=null; svg.classList.remove("drag"); });
+svg.addEventListener("wheel",e=>{ e.preventDefault(); goal=null;
+  const f=Math.exp(e.deltaY*.0012), px=view.x+e.clientX/innerWidth*view.w, py=view.y+e.clientY/innerHeight*view.h;
+  const w=Math.min(4000,Math.max(250,view.w*f)), k=w/view.w;
+  view.x=px-(px-view.x)*k; view.y=py-(py-view.y)*k; view.w=w; view.h*=k; clampView(); applyView(); },{passive:false});
+function clampView(){ view.x=Math.max(-1500,Math.min(2500,view.x)); view.y=Math.max(-1000,Math.min(1500,view.y)); }
+addEventListener("resize",()=>{ const ratio=innerHeight/innerWidth; view.h=view.w*ratio; goal=fit(list(C.steps[step].focus)); });
+
+/* flow animation: a few dots ride each active connector */
+const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+function syncDots(){
+  dotsLayer.textContent="";
+  if(reduce) return;
+  const flows=flowsOf(C.steps[step]);
+  for(const id in flowEls){ const fe=flowEls[id]; fe.dots=[];
+    if(!flows.includes(id)) continue;
+    const n=Math.max(2,Math.round(fe.len/90));
+    for(let k=0;k<n;k++){ fe.dots.push({e:el("circle",{r:3,class:"dot",style:`--col:var(--${fe.f.col})`},dotsLayer),o:k/n,rev:false});
+      if(fe.f.both) fe.dots.push({e:el("circle",{r:2.4,class:"dot",style:`--col:var(--${fe.f.col});opacity:.6`},dotsLayer),o:(k+.5)/n,rev:true}); }
+  }
+}
+function frame(ts){
+  const t=(ts-stepStart)/1000;
+  if(playing && t>STEP_SECONDS){ if(step<C.steps.length-1) go(step+1); else setPlay(false); }
+  if(goal){ if(reduce){ Object.assign(view,goal); } else { const k=.09; for(const key of ["x","y","w","h"]) view[key]+=(goal[key]-view[key])*k; } applyView(); }
+  for(const id in flowEls){ const fe=flowEls[id]; for(const d of fe.dots){ let u=(ts/1000*0.35+d.o)%1; if(d.rev) u=1-u;
+    const p=fe.p.getPointAtLength(u*fe.len); d.e.setAttribute("cx",p.x); d.e.setAttribute("cy",p.y); d.e.style.opacity=Math.min(1,Math.min(u,1-u)*8)*(d.rev?.6:1); } }
+  const seg=rail.children[step]?.querySelector("i"); if(seg) seg.style.width=(playing?Math.min(1,t/STEP_SECONDS)*100:100)+"%";
+  [...rail.children].forEach((c,j)=>{ if(j!==step) c.querySelector("i").style.width=j<step?"100%":"0"; });
+  requestAnimationFrame(frame);
+}
+
+/* start */
+try{ if(localStorage.getItem("explainer-theme")==="light") document.documentElement.dataset.theme="light"; }catch(e){}
+if(!load(document.getElementById("content").textContent)){ C={meta:{},group:{},node:{},flow:{},steps:[{id:"empty",title:"No content"}]}; build(); go(0); }
+Object.assign(view,goal); applyView();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
