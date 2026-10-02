@@ -318,3 +318,30 @@ Reproduce this look; it was iterated with the user and approved ("great overall"
 7. **Verification:** screenshot the overview and every step at 1920x1080 and 1280x720, plus View
    overview with a box selected, 2D, full screen and light theme. Read them against sections 14
    and 11 before delivering.
+
+## 17. Label size, model detail, and layout conventions (added with v4)
+
+1. **Label size control (required).** The page has an A− / A+ control (keys `[` and `]`, also in the
+   full-screen bar) that scales every label from 50% to 130% in 10% steps, shows "Label size NN%",
+   and remembers the choice (localStorage, in try/catch). Label CSS is written in `em` inside the
+   labels container, whose `font-size` is `calc(1rem * var(--ls))`, so text, padding, borders and
+   the label box all shrink together. In 2D the arrow and boundary text and the box text follow
+   the same factor. The label solver re-measures whenever the factor changes.
+2. **Model detail.** Each 3D object should carry real detail, not just a block with an icon:
+   people seated on chairs at desks with legs, arms, keyboard, mug and ID card; a standing person
+   with tablet, podium, stack of documents and stamp; agent towers with feet, inset panel, LED
+   strips, side vents, antenna, orb with two rings and an orbiting dot; server racks with rack
+   ears, drive bays, status LEDs, fans on top and a connector with cable; monitors with a bezel,
+   stand, camera dot, keyboard and mouse; a database as stacked drums with rings and LEDs; filing
+   cabinets with drawers, label plates and handles; a tray with a rim, folders with tabs and a
+   standing chart; a clock with bezel and bells and a calendar with binder rings; a cloud over a
+   chip with traces, data streams and two side racks. Keep it lightweight (hundreds of boxes, not
+   thousands) and verify at 1920x1080.
+3. **Storage that holds files is one unit.** A controlled-storage area (for example CM) is ONE long
+   unit built from abutting bays, each bay its own clickable box. Different file kinds (memory,
+   skills) are the same text-file shape in different colors. Never draw files as computers.
+4. **Right-hand column order = how the story flows.** Connected systems stack top to bottom in
+   the order they are used and stay green (Jira, Confluence, a web app, ...). The gray read-only
+   reference directories always sit at the very bottom right. If a system has no MCP server, its
+   arrow runs straight from the agents through the gap in the MCP column rather than inventing
+   a server.
