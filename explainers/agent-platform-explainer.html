@@ -1,0 +1,837 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Governed Agent Platform</title>
+<!--
+  Governed Agent Platform: an interactive explainer.
+  Fully self-contained: no network, no CDN, no fonts to download, no Java.
+  Open this file directly in any modern browser (Edge, Chrome, Firefox).
+
+  To change the words, edit the STEPS array near the top of the <script>.
+  To rename engineers, teams, servers and folders, edit NAMES just above it.
+  The run log shown in the side panel is the LOG object below STEPS.
+
+  Color scheme (same as the infographic):
+    orange = human actions          navy   = CM-controlled files
+    teal   = agent actions          gray   = read-only reference data
+    violet = agent-generated output (not CM)    green = connected apps
+    sky    = MCP servers
+-->
+<style>
+  :root{
+    --bg:#070b14; --bg2:#0e1422; --panel:rgba(12,17,30,.86); --line:rgba(255,255,255,.08);
+    --text:#e7ecf5; --muted:#8a94a8; --dim:#5b6478;
+    --human:#ff8a5b; --cm:#6d8bff; --agent:#2dd4bf; --ro:#a3afc2; --out:#a78bfa; --app:#4ade80; --mcp:#38bdf8; --llm:#c7d7fe; --cert:#f5c451;
+    --mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas#scene{width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+  canvas#scene.drag{cursor:grabbing}
+  #labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+  .lbl{position:absolute;transform:translate(-50%,-100%);white-space:nowrap;font-size:11px;letter-spacing:.02em;
+       padding:3px 8px;border-radius:999px;background:rgba(7,11,20,.8);border:1px solid var(--c,#fff3);color:var(--text);
+       transition:opacity .35s}
+  .lbl b{color:var(--c);font-weight:600}
+  .lbl small{color:var(--muted);font-family:var(--mono);font-size:10px;margin-left:6px}
+  .lbl::after{content:"";position:absolute;left:50%;top:100%;width:1px;height:10px;background:var(--c,#fff3);opacity:.6}
+  .hidelabels .lbl{opacity:0!important}
+
+  header{position:fixed;left:20px;top:16px;pointer-events:none}
+  header .kicker{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.14em;text-transform:uppercase}
+  header h1{margin:4px 0 0;font-size:22px;font-weight:650;letter-spacing:-.01em}
+  header p{margin:4px 0 0;color:var(--muted);font-size:13px}
+
+  #panel{position:fixed;right:16px;top:16px;bottom:96px;width:380px;background:var(--panel);backdrop-filter:blur(10px);
+         border:1px solid var(--line);border-radius:14px;padding:18px 18px 14px;display:flex;flex-direction:column;gap:12px;overflow:auto}
+  #stepno{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  #stepno b{color:var(--text);font-size:20px;font-weight:600}
+  #title{margin:0;font-size:20px;line-height:1.2;font-weight:650}
+  #body{margin:0;color:#c5cbd8;font-size:14px;line-height:1.55}
+  #body b{color:var(--text)}
+  #body code, .key code{font-family:var(--mono);font-size:12.5px;background:rgba(255,255,255,.06);padding:1px 5px;border-radius:4px;color:#f2f5fa}
+  .key{border-left:2px solid var(--accent,#2dd4bf);padding:8px 10px;background:rgba(255,255,255,.03);border-radius:0 8px 8px 0;font-size:13px;color:#d6dbe6;line-height:1.5}
+  .key .k{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent,#2dd4bf);margin-bottom:3px}
+  .screenwrap{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#000;flex:none}
+  .screenwrap .cap{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:6px 10px;border-bottom:1px solid var(--line);background:var(--bg2);display:flex;justify-content:space-between}
+  #screen{display:block;width:100%;height:auto;aspect-ratio:16/10}
+
+  #legend{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;font-size:11.5px;color:var(--muted);align-items:start;padding-top:2px}
+  #legend .h{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);padding-top:3px}
+  #legend .row{display:flex;flex-wrap:wrap;gap:5px 12px}
+  #legend span{display:inline-flex;align-items:center;gap:6px;transition:opacity .3s}
+  #legend span.off{opacity:.35}
+  #legend i.arr{display:inline-block;width:18px;height:2px;background:currentColor;position:relative;box-shadow:0 0 6px currentColor}
+  #legend i.arr::after{content:"";position:absolute;right:-1px;top:-3px;border:4px solid transparent;border-left:5px solid currentColor;border-right:0}
+  #legend i.arr.dash{background:repeating-linear-gradient(90deg,currentColor 0 4px,transparent 4px 7px);box-shadow:none}
+  #legend i.sq{display:inline-block;width:11px;height:11px;border-radius:2px;border:1.5px solid currentColor;background:color-mix(in srgb,currentColor 30%,transparent)}
+
+  #dock{position:fixed;left:16px;right:16px;bottom:16px;height:64px;background:var(--panel);backdrop-filter:blur(10px);
+        border:1px solid var(--line);border-radius:14px;display:flex;align-items:center;gap:12px;padding:0 12px}
+  #dock button{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text);border-radius:9px;height:38px;min-width:38px;
+               font:inherit;font-size:14px;cursor:pointer;padding:0 12px}
+  #dock button:hover{background:rgba(255,255,255,.12)}
+  #dock button:focus-visible{outline:2px solid var(--agent);outline-offset:2px}
+  #rail{flex:1;display:flex;gap:6px;align-items:stretch;height:38px}
+  #dock .chap{flex:1;border:0;background:none;padding:0;height:auto;border-radius:0;cursor:pointer;display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:0;color:var(--dim)}
+  .chap .seg{height:4px;border-radius:2px;background:rgba(255,255,255,.1);position:relative;overflow:hidden}
+  .chap .seg i{position:absolute;inset:0;width:0;background:var(--text)}
+  .chap.done .seg i{width:100%;background:var(--muted)}
+  .chap.on .seg i{background:var(--text)}
+  .chap span{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left}
+  .chap.on span{color:var(--text)}
+  .chap.done span{color:var(--muted)}
+  @media (max-width:1500px){#hint{display:none!important}}
+  #views{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;flex:none}
+  #dock #views button{border:0;border-radius:0;min-width:44px;background:transparent;color:var(--muted);font-family:var(--mono);font-size:12px;letter-spacing:.06em}
+  #dock #views button.on{background:rgba(255,255,255,.14);color:var(--text)}
+  #hint{font-family:var(--mono);font-size:10.5px;color:var(--dim);white-space:nowrap}
+  #hint kbd{font-family:inherit;border:1px solid var(--line);border-radius:4px;padding:0 4px;color:var(--muted)}
+
+  @media (max-width: 860px){
+    header{left:16px;top:12px}
+    header h1{font-size:17px} header p{display:none}
+    #panel{left:16px;right:16px;top:auto;bottom:88px;width:auto;max-height:46vh;padding:14px}
+    #hint{display:none}
+    .chap span{display:none}
+    #dock{height:58px}
+    .screenwrap,#legend{display:none}
+    .lbl{font-size:9.5px;padding:2px 6px} .lbl small{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="scene" aria-label="3D diagram of the governed agent platform"></canvas>
+  <div id="labels"></div>
+</div>
+
+<header>
+  <div class="kicker">Explainer · Agent management</div>
+  <h1>How we run AI agents, governed end to end</h1>
+  <p>Engineer → own agent → approved skills → LLM → MCP servers → reference data → shared output</p>
+</header>
+
+<aside id="panel" aria-live="polite">
+  <div id="stepno"></div>
+  <h2 id="title"></h2>
+  <p id="body"></p>
+  <div class="key" id="key"></div>
+  <div id="legend" aria-label="Legend">
+    <div class="h">Arrows</div>
+    <div class="row">
+      <span data-k="human" style="color:var(--human)"><i class="arr"></i>Human action</span>
+      <span data-k="agent" style="color:var(--agent)"><i class="arr"></i>Agent action</span>
+      <span data-k="ro" style="color:var(--ro)"><i class="arr dash"></i>Read-only</span>
+    </div>
+    <div class="h">Files</div>
+    <div class="row">
+      <span data-k="cm" style="color:var(--cm)"><i class="sq"></i>CM-controlled</span>
+      <span data-k="ref" style="color:var(--ro)"><i class="sq"></i>Read-only reference</span>
+      <span data-k="out" style="color:var(--out)"><i class="sq"></i>Agent-generated (not CM)</span>
+    </div>
+    <div class="h">Systems</div>
+    <div class="row">
+      <span data-k="agents" style="color:var(--agent)"><i class="sq"></i>Agents</span>
+      <span data-k="mcp" style="color:var(--mcp)"><i class="sq"></i>MCP servers</span>
+      <span data-k="app" style="color:var(--app)"><i class="sq"></i>Connected apps</span>
+    </div>
+  </div>
+  <div class="screenwrap">
+    <div class="cap"><span>Agent run log</span><span id="screencap"></span></div>
+    <canvas id="screen" width="640" height="400"></canvas>
+  </div>
+</aside>
+
+<nav id="dock">
+  <button id="prev" title="Previous step (←)">←</button>
+  <button id="play" title="Play / pause (Space)">▶</button>
+  <div id="rail"></div>
+  <button id="next" title="Next step (→)">→</button>
+  <div id="views" role="group" aria-label="View"><button id="v2" title="Flat 2D plan (V)">2D</button><button id="v3" class="on" title="3D scene (V)">3D</button></div>
+  <div id="hint"><kbd>drag</kbd> orbit · <kbd>right-drag</kbd> pan · <kbd>scroll</kbd> zoom · <kbd>L</kbd> labels · <kbd>V</kbd> 2D/3D · <kbd>R</kbd> reset</div>
+</nav>
+
+<script>
+"use strict";
+/* =====================================================================
+   CONTENT: edit these to change names and wording. Nothing else needed.
+   ===================================================================== */
+const NAMES = {
+  engineers: ["Engineer 1","Engineer 2","Engineer 3"],
+  short:     ["eng1","eng2","eng3"],
+  agents:    ["agent-1","agent-2","agent-3"],
+  teams:     ["Team A","Team B","Team C"],
+  lead:      "Group Lead",
+  cm:        "CM-controlled area",
+  env:       "Windows environment",
+  mcpZone:   "MCP servers",
+  mcp:       ["mcp-jira","mcp-confluence","mcp-docs"],
+  llm:       "LLM",
+  jira:      "Jira",
+  conf:      "Confluence",
+  mail:      "Email",
+  ref:       "Reference directories",
+  refParts:  ["SOPs","Technical documents","Historical records"],
+  out:       "Shared output directory",
+  metrics:   "Metrics & Tool Usage",
+};
+const E=i=>NAMES.engineers[i], AG=i=>NAMES.agents[i];
+
+const STEPS = [
+  { short:"Overview", title:"One agent per engineer, governed end to end",
+    body:`Each <b>engineer</b> prompts their own <b>agent</b>, which runs in our <b>${NAMES.env}</b> under that engineer's certificate. Agents follow skills and memory released by the <b>${NAMES.lead}</b> into a <b>${NAMES.cm}</b>. They reason with an off-premises <b>LLM</b>, reach Jira, Confluence and reference data through <b>MCP servers</b> in the same domain, and write only to a <b>shared output directory</b>.`,
+    key:["Read the colors","Orange is what people do, teal is what agents do. Navy files are CM-controlled, gray is read-only, violet is agent-generated."],
+    accent:"--agent", hi:["human","agent","ro","cm","ref","out","agents","mcp","app"] },
+  { short:"Prompt", title:"Engineers prompt their own agent",
+    body:`Each engineer works from a <b>Windows laptop</b> and signs in with their <b>PKI certificate</b>. They chat with their own agent: prompts go out, and the agent answers back in the same conversation. Each agent carries <b>its user's certificate</b>, so everything it does is done as, and traceable to, that engineer.`,
+    key:["One engineer, one agent","An agent never acts under a shared or anonymous identity."],
+    accent:"--human", hi:["human","agent","agents"] },
+  { short:"Approve", title:"Skill and memory changes go through the Group Lead",
+    body:`Agents follow <code>SKILL.md</code> files in each team's skill folder and a shared <code>MEMORY.md</code>. When an engineer wants to improve one, they <b>propose</b> the change to the <b>${NAMES.lead}</b>, who reviews it, approves it and <b>releases</b> it into the <b>${NAMES.cm}</b>. Nothing else can write there.`,
+    key:["Configuration management","Released skill and memory files are locked and versioned, like any other CM item."],
+    accent:"--cm", hi:["human","cm"] },
+  { short:"Load skills", title:"Agents load released skills and memory",
+    body:`When an agent starts work, it reads its team's <code>SKILL.md</code> files (<b>Team A</b>, <b>B</b> or <b>C</b>) and the shared <code>MEMORY.md</code> from the CM-controlled area. It can <b>read</b> them, but it cannot change them.`,
+    key:["Same files, same behavior","Every agent on a team works from the same released instructions."],
+    accent:"--cm", hi:["agent","cm","agents"] },
+  { short:"Schedules", title:"Scheduled tasks start agents on their own",
+    body:`Not every run needs a prompt. A <b>scheduled task</b> in the Windows environment can start an agent at a set time, for example every weekday morning. The run still uses the owning engineer's certificate and the same released skills.`,
+    key:["Owned automation","A scheduled run belongs to a named engineer, just like a chat."],
+    accent:"--agent", hi:["agent","agents"] },
+  { short:"LLM", title:"Agents reason with an off-premises LLM",
+    body:`To think through a task, an agent calls the <b>LLM</b> in the cloud over an <b>encrypted HTTPS API</b>. The LLM sends back plans and drafts. It has no access to our systems: anything it suggests doing is carried out by the agent, inside our environment.`,
+    key:["Thinking vs. doing","The LLM only suggests. The agent acts, and only through the connections shown here."],
+    accent:"--agent", hi:["agent","agents"] },
+  { short:"MCP servers", title:"MCP servers connect agents to Jira and Confluence",
+    body:`<b>MCP servers</b> run in the same domain as the agents. <code>${NAMES.mcp[0]}</code> and <code>${NAMES.mcp[1]}</code> give agents two-way access to <b>Jira</b> and <b>Confluence</b>: search issues, read pages, post updates. Agents also have a two-way link to <b>Email</b>.`,
+    key:["One door per system","Agents never hold Jira or Confluence credentials. Each MCP server is the single, controlled way in."],
+    accent:"--mcp", hi:["agent","mcp","app","agents"] },
+  { short:"Reference data", title:"Reference data is read-only",
+    body:`<code>${NAMES.mcp[2]}</code> gives agents access to the user-defined <b>reference directories</b>: <b>SOPs</b>, <b>technical documents</b> and <b>historical records and logs</b>. Agents only <b>read</b> from them. Any attempt to write there is refused.`,
+    key:["Look, don't touch","Agents can learn from years of documents and logs without any risk of changing them."],
+    accent:"--ro", hi:["ro","ref","mcp"] },
+  { short:"Outputs", title:"Outputs land in one shared directory",
+    body:`The <b>${NAMES.out.toLowerCase()}</b> is the <b>only path agents can write to</b>, with a folder per user. Each engineer sets their agent's write directory and <b>reviews</b> what it produces. A <b>${NAMES.metrics}</b> folder tracks skills used, time saved and customer value.`,
+    key:["Agent-generated, not CM","Outputs are drafts until an engineer reviews them. Nothing an agent writes becomes a CM item on its own."],
+    accent:"--out", hi:["human","agent","out","agents"] },
+];
+
+/* Run log lines per step: [tag, text, color-key]. Shown typed out in the side panel. */
+const LOG = {
+  0:[ ["status","3 agents online · "+NAMES.env,"agent"], ["cm","Team A/B/C skills · MEMORY.md (locked)","cm"], ["mcp","jira · confluence · docs connected","mcp"] ],
+  1:[ ["auth","PKI cert CN="+NAMES.short[0]+" ✓","human"], ["prompt",NAMES.short[0]+": \"List open defects for the release\"","human"], ["reply",AG(0)+": 14 open, 3 critical. Summary below.","agent"] ],
+  2:[ ["propose",NAMES.short[1]+" → Group Lead: Team B SKILL.md","human"], ["approve","Group Lead approved change","human"], ["release","Team B/SKILL.md → CM area (locked)","cm"] ],
+  3:[ ["read","Team A/SKILL.md   ✓ read-only","cm"], ["read","MEMORY.md         ✓ read-only","cm"], ["run-as",AG(0)+" as "+NAMES.short[0]+" (cert)","agent"] ],
+  4:[ ["task","06:00 weekdays → "+AG(2),"agent"], ["fired","06:00:00 run started as "+NAMES.short[2],"agent"] ],
+  5:[ ["https","→ LLM API (TLS) · prompt + context","agent"], ["https","← plan + draft","agent"] ],
+  6:[ ["mcp","jira: search open defects     ✓","mcp"], ["mcp","confluence: read release page ✓","mcp"], ["email","draft summary → "+NAMES.short[0]+"         ✓","app"] ],
+  7:[ ["mcp","docs: read SOPs/release.md    ✓","ro"], ["mcp","docs: read history/2025 logs  ✓","ro"], ["mcp","docs: write SOPs/…  ✗ read-only","human"] ],
+  8:[ ["write","/shared/out/"+NAMES.short[0]+"/defect-summary.md","out"], ["metrics","skill used · time saved · value","out"], ["review",NAMES.short[0]+" opened output","human"] ],
+};
+
+/* =====================================================================
+   Tiny 3D engine on a 2D canvas (no libraries).
+   It can morph between a perspective 3D view and a flat 2D plan view.
+   ===================================================================== */
+const cv = document.getElementById("scene"), ctx = cv.getContext("2d");
+const labelsEl = document.getElementById("labels");
+let W=0,H=0,DPR=1;
+function resize(){ DPR=Math.min(2,window.devicePixelRatio||1); W=cv.clientWidth; H=cv.clientHeight; cv.width=W*DPR; cv.height=H*DPR; }
+window.addEventListener("resize",resize);
+
+const v3=(x,y,z)=>({x,y,z});
+const sub=(a,b)=>v3(a.x-b.x,a.y-b.y,a.z-b.z), add=(a,b)=>v3(a.x+b.x,a.y+b.y,a.z+b.z), mul=(a,s)=>v3(a.x*s,a.y*s,a.z*s);
+const dot=(a,b)=>a.x*b.x+a.y*b.y+a.z*b.z, cross=(a,b)=>v3(a.y*b.z-a.z*b.y,a.z*b.x-a.x*b.z,a.x*b.y-a.y*b.x);
+const norm=a=>{const l=Math.hypot(a.x,a.y,a.z)||1;return v3(a.x/l,a.y/l,a.z/l)};
+const lerp=(a,b,t)=>a+(b-a)*t, clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
+const ease=t=>{t=clamp(t);return t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2};
+const LIGHT=norm(v3(-.5,1,.6));
+
+function hex(c){c=c.replace("#","");return[parseInt(c.slice(0,2),16),parseInt(c.slice(2,4),16),parseInt(c.slice(4,6),16)]}
+function rgba(c,a){const[r,g,b]=Array.isArray(c)?c:hex(c);return`rgba(${r|0},${g|0},${b|0},${a})`}
+function mix(c1,c2,t){const a=hex(c1),b=hex(c2);return[lerp(a[0],b[0],t),lerp(a[1],b[1],t),lerp(a[2],b[2],t)]}
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const COL={bg:"#070b14",human:"#ff8a5b",cm:"#6d8bff",agent:"#2dd4bf",ro:"#a3afc2",out:"#a78bfa",app:"#4ade80",mcp:"#38bdf8",llm:"#c7d7fe",cert:"#f5c451",
+           white:"#e7ecf5",steel:"#8a94a8",dim:"#5b6478"};
+
+/* Camera. 3D: orbit camera. 2D: flat plan seen from above (x right, z down). */
+const LIMIT = { tx:[-17,18], ty:[0,8], tz:[-10,9], yaw:[-1.1,1.1], pitch:[.1,1.25], dist:[8,70] };
+const LIMIT2 = { zoom:[1,3.5] };
+const OBL=.38;                                   // in 2D, how much height shows (a slight oblique so screens stay readable)
+const cam={tx:0,ty:1,tz:0,yaw:.2,pitch:.6,dist:44,fov:1.0};
+const FLAT_HOME={cx:.4,cz:-.6,zoom:1};
+const flat={...FLAT_HOME};
+let camGoal=null, mode=0, modeGoal=0;        // mode: 0 = 3D, 1 = 2D (animates between)
+let eye,fwd,right,up,focal,oScale;
+function clampCam(){ for(const k in LIMIT) cam[k]=clamp(cam[k],LIMIT[k][0],LIMIT[k][1]);
+  flat.zoom=clamp(flat.zoom,LIMIT2.zoom[0],LIMIT2.zoom[1]);
+  const hw=17.5*(1-1/flat.zoom), hh=10.5*(1-1/flat.zoom); flat.cx=clamp(flat.cx,FLAT_HOME.cx-hw,FLAT_HOME.cx+hw); flat.cz=clamp(flat.cz,FLAT_HOME.cz-hh,FLAT_HOME.cz+hh); }
+function setupCam(){
+  const cp=Math.cos(cam.pitch);
+  eye=v3(cam.tx+cam.dist*cp*Math.sin(cam.yaw),cam.ty+cam.dist*Math.sin(cam.pitch),cam.tz+cam.dist*cp*Math.cos(cam.yaw));
+  fwd=norm(sub(v3(cam.tx,cam.ty,cam.tz),eye)); right=norm(cross(fwd,v3(0,1,0))); up=cross(right,fwd);
+  focal=(Math.min(W,H*1.6)*DPR)/(2*Math.tan(cam.fov/2))*(W<=860?1.25:1);
+  const availW=(W>860?W-420:W-32)*DPR, availH=(W>860?H-170:H*.42)*DPR;
+  oScale=Math.min(availW/36,availH/21.5)*flat.zoom;
+}
+function panelShift(){ return W>860 ? 200*DPR : 0; }  // keep the scene centered in the space left of the panel
+function proj(p){
+  const ox=(W*DPR)/2-panelShift(), oy=(H*DPR)/2-(W<=860?H*.2*DPR:0);
+  let a=null;
+  if(mode<1){ const d=sub(p,eye), z=dot(d,fwd); if(z>.1) a={x:ox+dot(d,right)*focal/z, y:oy-dot(d,up)*focal/z, z, s:focal/z}; }
+  if(mode<=0) return a;
+  const o={x:ox+(p.x-flat.cx)*oScale, y:oy+10*DPR+((p.z-flat.cz)-p.y*OBL)*oScale, z:60-p.y-OBL*p.z, s:oScale};
+  if(mode>=1) return o;
+  if(!a) return mode>.5?o:null;
+  const m=ease(mode); return {x:lerp(a.x,o.x,m),y:lerp(a.y,o.y,m),z:lerp(a.z,o.z,m),s:lerp(a.s,o.s,m)};
+}
+/* which way the viewer is looking, for back-face culling */
+const viewDir=c=> mode>.5 ? v3(0,-1,-OBL) : sub(c,eye);
+
+/* Draw lists */
+let items=[], glows=[], flats=[];
+function pathDraw(P){ctx.beginPath();P.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));}
+function quad(pts,fill,stroke,alpha,lw){
+  const P=pts.map(proj); if(P.some(p=>!p)) return;
+  const z=P.reduce((s,p)=>s+p.z,0)/P.length;
+  items.push({z,f:()=>{ctx.globalAlpha=alpha;pathDraw(P);ctx.closePath();
+    if(fill){ctx.fillStyle=fill;ctx.fill()} if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=(lw||1.2)*DPR;ctx.stroke()} ctx.globalAlpha=1;}});
+}
+/* A box: dark glassy faces, bright colored edges. */
+function box(c,s,color,o={}){
+  const a=o.alpha??1; if(a<=.01) return;
+  const hx=s.x/2,hy=s.y/2,hz=s.z/2;
+  const V=[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]].map(([x,y,z])=>v3(c.x+x*hx,c.y+y*hy,c.z+z*hz));
+  const F=[[[0,3,2,1],v3(0,0,-1)],[[4,5,6,7],v3(0,0,1)],[[0,4,7,3],v3(-1,0,0)],[[1,2,6,5],v3(1,0,0)],[[3,7,6,2],v3(0,1,0)],[[0,1,5,4],v3(0,-1,0)]];
+  const glow=o.glow??0;
+  for(const[idx,n]of F){
+    const fc=idx.reduce((s,i)=>add(s,V[i]),v3(0,0,0)); const center=mul(fc,.25);
+    if(dot(n,viewDir(center))>=-1e-6) continue;
+    const lit=.35+.65*Math.max(0,dot(n,LIGHT));
+    const base=mix(COL.bg,color,(o.tint??.22)*lit+glow*.35);
+    quad(idx.map(i=>V[i]),rgba(base,1),rgba(color,(o.edge??.55)+.45*glow),a,o.lw||1.1);
+  }
+}
+function line(pts,color,alpha,w){ glows.push(()=>{const P=pts.map(proj); if(P.some(p=>!p))return;
+  ctx.strokeStyle=color; ctx.lineCap="round"; ctx.lineJoin="round";
+  for(const[lw,ga]of[[w*4,.15],[w,1]]){ctx.globalAlpha=alpha*ga;ctx.lineWidth=lw*DPR;pathDraw(P);ctx.stroke();}
+  ctx.globalAlpha=1;});}
+function thin(pts,color,alpha,w=1){ glows.push(()=>{const P=pts.map(proj); if(P.some(p=>!p))return;
+  ctx.strokeStyle=color;ctx.globalAlpha=alpha;ctx.lineWidth=w*DPR;pathDraw(P);ctx.stroke();ctx.globalAlpha=1;});}
+function dashed(pts,color,alpha,w,offset){ glows.push(()=>{const P=pts.map(proj); if(P.some(p=>!p))return;
+  ctx.setLineDash([6*DPR,8*DPR]);ctx.lineDashOffset=-offset*DPR;ctx.globalAlpha=alpha;ctx.strokeStyle=color;ctx.lineWidth=w*DPR;
+  pathDraw(P);ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;});}
+function dotp(p,r,color,alpha){ glows.push(()=>{const q=proj(p); if(!q)return; const rr=Math.max(1.2,r*q.s);
+  const g=ctx.createRadialGradient(q.x,q.y,0,q.x,q.y,rr*3);g.addColorStop(0,rgba(color,alpha));g.addColorStop(.3,rgba(color,alpha*.5));g.addColorStop(1,rgba(color,0));
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(q.x,q.y,rr*3,0,7);ctx.fill();});}
+/* A flat ring lying in the horizontal plane (agent halos). */
+function ring(c,r,color,alpha,w=1.2){ const pts=[]; for(let i=0;i<=48;i++){const a=i/48*Math.PI*2;pts.push(v3(c.x+Math.cos(a)*r,c.y,c.z+Math.sin(a)*r));} thin(pts,color,alpha,w); }
+/* Texture-map a canvas onto a flat rectangle (affine). corners: top-left, top-right, bottom-left. */
+function texQuad(tl,tr,bl,img,alpha,border){
+  const P=[proj(tl),proj(tr),proj(bl)]; if(P.some(p=>!p))return;
+  const br=add(tr,sub(bl,tl)), Pb=proj(br); if(!Pb) return;
+  const n=cross(sub(tr,tl),sub(bl,tl)); if(dot(n,viewDir(tl))<0) return;   // only draw the front side
+  const z=(P[0].z+P[1].z+P[2].z+Pb.z)/4;
+  items.push({z:z-.05,f:()=>{ctx.save();ctx.globalAlpha=alpha;
+    ctx.beginPath();ctx.moveTo(P[0].x,P[0].y);ctx.lineTo(P[1].x,P[1].y);ctx.lineTo(Pb.x,Pb.y);ctx.lineTo(P[2].x,P[2].y);ctx.closePath();ctx.clip();
+    ctx.setTransform((P[1].x-P[0].x)/img.width,(P[1].y-P[0].y)/img.width,(P[2].x-P[0].x)/img.height,(P[2].y-P[0].y)/img.height,P[0].x,P[0].y);
+    ctx.drawImage(img,0,0);ctx.restore();
+    if(border){ctx.globalAlpha=alpha;ctx.strokeStyle=border;ctx.lineWidth=1.5*DPR;ctx.beginPath();ctx.moveTo(P[0].x,P[0].y);ctx.lineTo(P[1].x,P[1].y);ctx.lineTo(Pb.x,Pb.y);ctx.lineTo(P[2].x,P[2].y);ctx.closePath();ctx.stroke();ctx.globalAlpha=1;}
+  }});
+}
+function platform(x0,x1,z0,z1,color,y=0,grid=1){
+  flats.push(()=>{const P=[v3(x0,y,z0),v3(x1,y,z0),v3(x1,y,z1),v3(x0,y,z1)].map(proj); if(P.some(p=>!p))return;
+    ctx.fillStyle=rgba(mix(COL.bg,color,.06),1);ctx.strokeStyle=rgba(color,.28);ctx.lineWidth=1*DPR;
+    pathDraw(P);ctx.closePath();ctx.fill();ctx.stroke();
+    if(mode>.6||!grid) return;
+    ctx.globalAlpha=1-mode;ctx.strokeStyle=rgba(color,.06);
+    for(let x=Math.ceil(x0);x<=x1;x+=grid){const a=proj(v3(x,y,z0)),b=proj(v3(x,y,z1));if(a&&b){ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}}
+    for(let z=Math.ceil(z0);z<=z1;z+=grid){const a=proj(v3(x0,y,z)),b=proj(v3(x1,y,z));if(a&&b){ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}}
+    ctx.globalAlpha=1;});
+}
+/* Paths: arcs and straight runs, resampled so particles move at an even speed. */
+function arc(a,b,h,n=40){const pts=[];for(let i=0;i<=n;i++){const t=i/n;pts.push(v3(lerp(a.x,b.x,t),lerp(a.y,b.y,t)+h*4*t*(1-t),lerp(a.z,b.z,t)));}return pts;}
+function route(...parts){ const raw=[]; parts.forEach(p=>raw.push(...(Array.isArray(p)?p:[p])));
+  const out=[raw[0]]; for(let i=1;i<raw.length;i++){const a=raw[i-1],b=raw[i],L=Math.hypot(b.x-a.x,b.y-a.y,b.z-a.z),n=Math.max(1,Math.ceil(L/.2));
+    for(let k=1;k<=n;k++){const t=k/n;out.push(v3(lerp(a.x,b.x,t),lerp(a.y,b.y,t),lerp(a.z,b.z,t)));}}
+  return out; }
+function along(pts,t){t=((t%1)+1)%1;const f=t*(pts.length-1),i=Math.floor(f),u=f-i;const a=pts[i],b=pts[Math.min(i+1,pts.length-1)];return v3(lerp(a.x,b.x,u),lerp(a.y,b.y,u),lerp(a.z,b.z,u));}
+function stream(pts,color,alpha,n,speed,rev,size=.09){for(let i=0;i<n;i++){let t=(now*speed+i/n)%1; if(rev)t=1-t; dotp(along(pts,t),size,color,alpha);}}
+/* A flow: glowing path + particles; both = traffic in both directions. */
+function flow(pts,color,a,o={}){ if(a<=0) return;
+  if(o.dash) dashed(pts,color,.8*a,1.4,now*14); else line(pts,color,.42*a,o.w||1.1);
+  stream(pts,color,a,o.n||6,o.speed||.3,!!o.rev,o.size||.08);
+  if(o.both) stream(pts,COL.white,a*.55,Math.max(2,(o.n||6)>>1),o.speed||.3,!o.rev,.055);
+}
+
+/* Screen-space widgets that sit at a 3D point (depth-sorted with the boxes). */
+function sprite(p,draw,alpha=1,dz=-.2,k=1){ const q=proj(p); if(!q||alpha<=.01) return;
+  items.push({z:q.z+dz,f:()=>{const s=clamp(q.s/(18*DPR),.45,1.4)*DPR*k; ctx.save();ctx.globalAlpha=alpha;ctx.translate(q.x,q.y);ctx.scale(s,s);draw();ctx.restore();}}); }
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function bubble(p,color,alpha,typing){ sprite(p,()=>{ rr(-17,-24,34,20,6); ctx.fillStyle=rgba(mix(COL.bg,color,.28),1);ctx.fill();ctx.strokeStyle=color;ctx.lineWidth=1.4;ctx.stroke();
+  ctx.beginPath();ctx.moveTo(-6,-4.5);ctx.lineTo(-10,3);ctx.lineTo(0,-4.5);ctx.fillStyle=rgba(mix(COL.bg,color,.28),1);ctx.fill();
+  for(let i=0;i<3;i++){ctx.fillStyle=color;ctx.globalAlpha*=1;ctx.beginPath();ctx.arc(-8+i*8,-14+(typing?Math.sin(now*6+i)*1.5:0),2.2,0,7);ctx.fill();} },alpha); }
+function badge(p,color,alpha,glyph="check"){ sprite(p,()=>{ ctx.fillStyle=rgba(mix(COL.bg,color,.35),1);ctx.strokeStyle=color;ctx.lineWidth=1.6;
+  ctx.beginPath();ctx.arc(0,0,10,0,7);ctx.fill();ctx.stroke(); ctx.strokeStyle="#fff";ctx.lineWidth=2.2;ctx.lineCap="round";ctx.beginPath();
+  if(glyph==="check"){ctx.moveTo(-4.5,0);ctx.lineTo(-1,3.5);ctx.lineTo(5,-3.5);} else {ctx.moveTo(-4,-4);ctx.lineTo(4,4);ctx.moveTo(4,-4);ctx.lineTo(-4,4);}
+  ctx.stroke(); },alpha,-.4); }
+function lock(p,color,alpha,k=1){ sprite(p,()=>{ ctx.strokeStyle=color;ctx.lineWidth=2.2;ctx.beginPath();ctx.arc(0,-6,5,Math.PI,0);ctx.lineTo(5,-2);ctx.moveTo(-5,-2);ctx.lineTo(-5,-6);ctx.stroke();
+  rr(-8,-3,16,12,2.5);ctx.fillStyle=rgba(mix(COL.bg,color,.4),1);ctx.fill();ctx.stroke(); ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(0,2.5,1.8,0,7);ctx.fill(); },alpha,-.4,k); }
+
+/* HTML labels */
+const LBL={};
+function label(id,p,html,color,alpha){
+  let el=LBL[id]; if(!el){el=LBL[id]=document.createElement("div");el.className="lbl";labelsEl.appendChild(el);}
+  if(el._h!==html){el.innerHTML=html;el._h=html;} el.style.setProperty("--c",color);
+  const q=proj(p); el._seen=true; if(!q||alpha<=.01){el.style.opacity=0;return;}
+  el.style.left=(q.x/DPR)+"px"; el.style.top=(q.y/DPR-10)+"px"; el.style.opacity=alpha;
+}
+
+
+/* =====================================================================
+   Scene layout (world units; y is up, the viewer starts on the +z side).
+   Back row: Group Lead, CM-controlled area, LLM cloud.
+   Middle: engineers, the Windows environment (agents + MCP servers), apps.
+   Front row: shared output directory, read-only reference directories.
+   ===================================================================== */
+const PLAT={x0:-5.4,x1:10.6,z0:-4,z1:4,top:.55}, DIV=4.3;
+const T=PLAT.top;
+const AGENTS=[v3(-3.3,T,-1.3),v3(-.6,T,-2.3),v3(2.1,T,-1.3)];
+const AG_H=1.9;
+const agentTop=i=>v3(AGENTS[i].x,AGENTS[i].y+AG_H+.75,AGENTS[i].z);
+const agentFront=(i,dy=.9)=>v3(AGENTS[i].x,AGENTS[i].y+dy,AGENTS[i].z+.52);
+const CLOCK=v3(-1.7,T,2.7), CAL=v3(.2,T,3.0);
+const HUB=v3(DIV,T+.01,.4);
+const MCPS=[v3(6.1,T,-2),v3(8.9,T,-2),v3(7.5,T,1.9)];
+const ENG=[v3(-13.4,0,-3.6),v3(-14,0,.2),v3(-13,0,4)];
+const LEAD=v3(-7.8,0,-8.2);
+const VAULT={x:0,z:-9,w:6.6,h:4.4,d:1.7};
+const VCOMP=[ // compartments: [x, shelf y, color, name]
+  [-2.13,2.3,"#6d8bff",NAMES.teams[0]],[0,2.3,"#7f96ff",NAMES.teams[1]],[2.13,2.3,"#5f7df0",NAMES.teams[2]],
+  [-2.13,.2,"#4c63c4",""],[0,.2,"#a9bbff","MEMORY.md"],[2.13,.2,"#4c63c4",""] ];
+const vaultMouth=i=>v3(VCOMP[i][0],VCOMP[i][1]+1.0,VAULT.z+VAULT.d/2+.15);
+const LLM=v3(13.8,6.6,-8.6);
+const APPS=[ {k:"jira",name:NAMES.jira,c:v3(13.4,3.0,-3.6)}, {k:"conf",name:NAMES.conf,c:v3(16.3,3.2,-1.2)}, {k:"mail",name:NAMES.mail,c:v3(14,2.4,2.5)} ];
+const APP_W=2.8, APP_H=1.9;
+const OUT=v3(-7.4,0,7.6), DASH=v3(-4.6,1.95,6.5);
+const OUTG=[-3.3,-1.8,-.3,1.3];             // folder groups on the output tray: 3 users + metrics
+const REF=v3(11,0,7.6);
+
+/* =====================================================================
+   Offscreen canvases: engineer laptops, app UIs, metrics dashboard,
+   scheduled-task clock and calendar, and the run log in the side panel.
+   ===================================================================== */
+function mk(w,h){const c=document.createElement("canvas");c.width=w;c.height=h;return c;}
+const engScr=[mk(200,128),mk(200,128),mk(200,128)];
+const appScr={jira:mk(280,190),conf:mk(280,190),mail:mk(280,190)};
+const dashScr=mk(280,170), clockScr=mk(128,128), calScr=mk(128,112);
+const logScr=document.getElementById("screen").getContext("2d");
+const ASK=["List open defects","Draft the test summary","Check last week's logs"], ANS=["14 open, 3 critical","Draft ready for review","2 anomalies found"];
+
+function drawEng(i,s,t){ const c=engScr[i].getContext("2d"),w=200,h=128;
+  const g=c.createLinearGradient(0,0,w,h);g.addColorStop(0,"#0b2a52");g.addColorStop(1,"#071426");c.fillStyle=g;c.fillRect(0,0,w,h);
+  c.fillStyle="rgba(8,12,20,.95)";c.fillRect(0,h-12,w,12); c.fillStyle="#5ad1ff";c.fillRect(5,h-9,6,6);
+  c.fillStyle="#0d1424";c.fillRect(10,8,180,104); c.fillStyle="#16213a";c.fillRect(10,8,180,14);
+  c.fillStyle=COL.agent;c.fillRect(15,12,6,6); c.fillStyle="#9aa3b2";c.font=`8.5px ${css("--sans")}`;c.textBaseline="middle";c.fillText(AG(i)+" · signed in as "+NAMES.short[i],25,15.5);
+  const loop=s===1?t:(s===0?(now%6):6), typed=clamp((loop-i*.4)*14,0,99);
+  c.font=`9px ${css("--sans")}`;
+  if(typed>0){ const m=ASK[i].slice(0,typed|0), tw=Math.min(150,c.measureText(m).width+12);
+    c.fillStyle=rgba(COL.human,.9);c.fillRect(184-tw,30,tw,15);c.fillStyle="#1a0c05";c.fillText(m,190-tw,38); }
+  if(loop>2+i*.4){ const m=ANS[i].slice(0,clamp((loop-2-i*.4)*14,0,99)|0), tw=Math.min(150,c.measureText(m).width+12);
+    c.fillStyle=rgba(COL.agent,.9);c.fillRect(16,54,tw,15);c.fillStyle="#04201c";c.fillText(m,22,62); }
+  c.fillStyle="#141c2e";c.fillRect(16,92,168,13);
+}
+function uiFrame(c,w,h,title,col){ c.fillStyle="#0c1220";c.fillRect(0,0,w,h);c.fillStyle="#141d31";c.fillRect(0,0,w,20);
+  c.fillStyle=col;c.fillRect(8,7,7,7);c.fillStyle="#c5cbd8";c.font=`11px ${css("--sans")}`;c.textBaseline="middle";c.fillText(title,22,10.5); }
+function drawApps(s,t){ const hot=s===6;
+  let c=appScr.mail.getContext("2d"); uiFrame(c,280,190,"Email · inbox",COL.app);
+  for(let i=0;i<6;i++){const y=30+i*26, sel=hot&&i===(Math.floor(now*.8)%6); c.fillStyle=sel?rgba(COL.app,.18):"#111a2c";c.fillRect(8,y,264,22);
+    c.fillStyle=i<2?COL.app:"#5b6478";c.beginPath();c.arc(18,y+11,3,0,7);c.fill(); c.fillStyle="#c5cbd8";c.fillRect(28,y+6,70+((i*37)%60),4);c.fillStyle="#5b6478";c.fillRect(28,y+13,120+((i*53)%80),3);}
+  c=appScr.conf.getContext("2d"); uiFrame(c,280,190,"Confluence · release checklist",COL.app);
+  c.fillStyle="#111a2c";c.fillRect(8,28,64,154); for(let i=0;i<7;i++){c.fillStyle=i===2?rgba(COL.app,.6):"#2a3550";c.fillRect(14,36+i*20,48,6);}
+  c.fillStyle="#e7ecf5";c.fillRect(82,32,120,8);
+  for(let r=0;r<9;r++){c.fillStyle=r%4===0?"#8a94a8":"#3b4766";c.fillRect(82,50+r*14,(r%4===0?90:150)+((r*29)%40),r%4===0?5:4);}
+  if(hot){c.fillStyle=rgba(COL.app,.25+.2*Math.sin(now*4));c.fillRect(80,92,186,30);}
+  c=appScr.jira.getContext("2d"); uiFrame(c,280,190,"Jira · release board",COL.app);
+  ["To do","In progress","Done"].forEach((n,k)=>{const x=8+k*91;c.fillStyle="#111a2c";c.fillRect(x,28,86,154);c.fillStyle="#8a94a8";c.font=`9px ${css("--sans")}`;c.fillText(n,x+6,38);
+    for(let j=0;j<3-(k===2?1:0);j++){c.fillStyle="#1a2540";c.fillRect(x+5,48+j*40,76,34);c.fillStyle=["#f87171","#fbbf24","#60a5fa"][(j+k)%3];c.fillRect(x+5,48+j*40,3,34);c.fillStyle="#4a5672";c.fillRect(x+12,56+j*40,50,4);c.fillRect(x+12,64+j*40,36,3);}});
+  const m=hot?ease((t-1.5)/1.5):s>6?1:0, cx=lerp(104,195,m), cy=128;
+  c.fillStyle="#22304f";c.fillRect(cx,cy,76,34);c.strokeStyle=COL.app;c.lineWidth=hot?2:1;c.strokeRect(cx,cy,76,34);c.fillStyle=COL.app;c.font=`9px ${css("--mono")}`;c.fillText("DEF-88",cx+6,cy+10);c.fillStyle="#8a94a8";c.fillRect(cx+6,cy+18,54,4);
+}
+function drawDash(s,t){ const c=dashScr.getContext("2d"); uiFrame(c,280,170,NAMES.metrics,COL.out);
+  const g=s===8?ease(t/1.6):s>8?1:0, k=lerp(.45,1,g);
+  c.font=`9px ${css("--sans")}`;c.fillStyle="#8a94a8";c.fillText("Skills used",12,32);c.fillText("Time saved",104,32);c.fillText("Customer value",196,32);
+  for(let i=0;i<5;i++){const v=(.35+.6*Math.abs(Math.sin(i*1.9+1)))*k; c.fillStyle=i===4?COL.out:"#4b4a7a";c.fillRect(12+i*15,150-v*100,10,v*100);}
+  c.strokeStyle=COL.out;c.lineWidth=2;c.beginPath();for(let i=0;i<6;i++){const y=140-i*16*k-Math.sin(i*1.7)*5;i?c.lineTo(104+i*15,y):c.moveTo(104,y);}c.stroke();
+  const cx=230,cy=108; c.lineWidth=9;c.strokeStyle="#1e2a44";c.beginPath();c.arc(cx,cy,28,Math.PI*.8,Math.PI*2.2);c.stroke();
+  c.strokeStyle=COL.out;c.beginPath();c.arc(cx,cy,28,Math.PI*.8,Math.PI*(.8+1.4*lerp(.3,.86,g)));c.stroke();
+  c.fillStyle="#e7ecf5";c.font=`bold 13px ${css("--sans")}`;c.textAlign="center";c.fillText(Math.round(100*lerp(.3,.86,g))+"%",cx,cy+2);c.textAlign="left";
+}
+function drawClock(){ const c=clockScr.getContext("2d"); c.fillStyle="#0c1220";c.fillRect(0,0,128,128);
+  c.strokeStyle=COL.agent;c.lineWidth=3;c.beginPath();c.arc(64,64,52,0,7);c.stroke();
+  for(let i=0;i<12;i++){const a=i/12*Math.PI*2;c.lineWidth=i%3?1.5:3;c.beginPath();c.moveTo(64+Math.cos(a)*44,64+Math.sin(a)*44);c.lineTo(64+Math.cos(a)*50,64+Math.sin(a)*50);c.stroke();}
+  const m=now*.6, hA=m/12-Math.PI/2, mA=m-Math.PI/2; c.strokeStyle="#e7ecf5";c.lineCap="round";
+  c.lineWidth=4;c.beginPath();c.moveTo(64,64);c.lineTo(64+Math.cos(hA)*26,64+Math.sin(hA)*26);c.stroke();
+  c.lineWidth=2.5;c.beginPath();c.moveTo(64,64);c.lineTo(64+Math.cos(mA)*40,64+Math.sin(mA)*40);c.stroke();
+  c.fillStyle=COL.agent;c.beginPath();c.arc(64,64,4,0,7);c.fill(); }
+function drawCal(s){ const c=calScr.getContext("2d"); c.fillStyle="#0c1220";c.fillRect(0,0,128,112); c.fillStyle=COL.agent;c.fillRect(0,0,128,22);
+  c.fillStyle="#0c1220";c.font=`bold 10px ${css("--sans")}`;c.textBaseline="middle";c.fillText("SCHEDULED TASK",8,11.5);
+  for(let r=0;r<4;r++)for(let k=0;k<7;k++){const on=k<5; c.fillStyle=on?rgba(COL.agent,.55):"#1a2338";c.fillRect(8+k*16,30+r*20,12,14);}
+  if(s===4&&Math.sin(now*5)>0||s>4){c.strokeStyle="#fff";c.lineWidth=2;c.strokeRect(8+2*16-1,30+2*20-1,14,16);} }
+
+/* Run log: earlier steps fully, current step typed. */
+function drawLog(st,t){ const c=logScr,w=640,h=400;
+  c.fillStyle="#05080f";c.fillRect(0,0,w,h);
+  c.fillStyle="#0e1422";c.fillRect(0,0,w,40);c.font=`18px ${css("--mono")}`;c.textBaseline="middle";
+  c.fillStyle="#8a94a8";c.fillText("windows-env · agent run log",16,21);
+  ["human","agent","cm","out"].forEach((k,i)=>{c.fillStyle=COL[k];c.beginPath();c.arc(w-88+i*22,21,5,0,7);c.fill();});
+  const lines=[]; for(let s=0;s<=st;s++) (LOG[s]||[]).forEach(ln=>lines.push({ln,s}));
+  c.font=`19px ${css("--mono")}`;
+  const lh=31, maxL=Math.floor((h-62)/lh), vis=lines.slice(-maxL), tagW=c.measureText("release ").width;
+  let budget=t*34;
+  vis.forEach((o,row)=>{ const [tag,txt,ck]=o.ln; let shown=txt;
+    if(o.s===st){ const need=tag.length+txt.length; const take=Math.max(0,Math.min(need,budget)); budget-=need+8; if(take<=0&&row>0) return; shown=txt.slice(0,Math.max(0,take-tag.length)); }
+    const y=66+row*lh;
+    c.globalAlpha=o.s===st?1:.55;
+    c.fillStyle=COL[ck];c.fillText(tag,16,y);
+    c.fillStyle="#e7ecf5";c.fillText(shown,16+tagW,y);
+    c.globalAlpha=1;
+  });
+  if(Math.floor(now*2)%2){c.fillStyle="#e7ecf5";c.fillRect(16,66+Math.min(vis.length,maxL)*lh-10,10,20);}
+}
+
+/* =====================================================================
+   Scene objects
+   ===================================================================== */
+const fade=(from,t,d=.8)=>step>from?1:step===from?ease(t/d):0;
+function onStep(list,t){ return list.includes(step) ? ease(t/.8) : 0; }
+
+function head(p,color){ const q=proj(p); if(!q) return;
+  items.push({z:q.z,f:()=>{const q=proj(p);const r=.27*q.s;ctx.fillStyle=rgba(mix(COL.bg,color,.4),1);ctx.strokeStyle=color;ctx.lineWidth=1.2*DPR;ctx.beginPath();ctx.arc(q.x,q.y,r,0,7);ctx.fill();ctx.stroke();}}); }
+function person(base,color,standing,glow=0){
+  if(standing){ box(v3(base.x,.42,base.z),v3(.5,.84,.34),color,{tint:.25,edge:.5}); box(v3(base.x,1.22,base.z),v3(.7,.8,.42),color,{tint:.38,glow}); head(v3(base.x,1.92,base.z),color); }
+  else { box(v3(base.x,.95,base.z),v3(.66,1.0,.42),color,{tint:.35,glow}); head(v3(base.x,1.7,base.z),color); }
+}
+/* PKI certificate: a small card with a seal and ribbon. */
+function cert(p,alpha=1,k=1){ sprite(p,()=>{ const c=COL.cert;
+  rr(-11,-8,22,15,2.5);ctx.fillStyle=rgba(mix(COL.bg,c,.3),1);ctx.fill();ctx.strokeStyle=c;ctx.lineWidth=1.4;ctx.stroke();
+  ctx.fillStyle=rgba(c,.8);ctx.fillRect(-8,-4.5,9,1.6);ctx.fillRect(-8,-1,7,1.4);ctx.fillRect(-8,2.2,8,1.4);
+  ctx.beginPath();ctx.moveTo(4,4);ctx.lineTo(2.5,10);ctx.lineTo(5,8.5);ctx.lineTo(7.5,10);ctx.lineTo(6,4);ctx.fill();
+  ctx.beginPath();ctx.arc(5,1.5,3.6,0,7);ctx.fillStyle=c;ctx.fill(); },alpha,-.5,k); }
+function engineer(i,s,t,active){
+  const u=ENG[i];
+  box(v3(u.x,.38,u.z),v3(2.1,.76,1.1),COL.steel,{tint:.16,edge:.35});                       // desk
+  box(v3(u.x,.79,u.z+.05),v3(1.3,.04,.8),COL.steel,{tint:.3,edge:.55});                     // laptop base
+  texQuad(v3(u.x-.64,1.62,u.z-.42),v3(u.x+.64,1.62,u.z-.42),v3(u.x-.64,.81,u.z-.33),engScr[i],1,active?COL.human:"#3a4560");
+  box(v3(u.x,.5,u.z+1.05),v3(.6,.08,.6),COL.steel,{tint:.14,edge:.3});                     // chair
+  person(v3(u.x,0,u.z+1.05),COL.human,false,active?.15:0);
+  cert(v3(u.x+.95,1.25,u.z+.35),1,.85);
+}
+function agentNode(i,act){
+  const b=AGENTS[i], col=COL.agent, g=act;
+  box(v3(b.x,b.y+.07,b.z),v3(1.5,.14,1.5),col,{tint:.18,edge:.45});
+  box(v3(b.x,b.y+.14+AG_H/2,b.z),v3(1,AG_H,1),col,{tint:.26+.12*g,edge:.55+.3*g,glow:.1*g});
+  for(let k=0;k<5;k++){ const y=b.y+.45+k*.3, lit=.35+.65*Math.max(0,Math.sin(now*(3+i)+k*1.4))*(g>0?1:.3);
+    box(v3(b.x-.08,y,b.z+.515),v3(.62,.05,.02),col,{tint:.4+.5*lit,edge:.4+.6*lit,glow:lit*.8,lw:.8}); }
+  dotp(v3(b.x+.36,b.y+.45,b.z+.52),.03,g>0?COL.app:COL.dim,.9);
+  const top=v3(b.x,b.y+AG_H+.75,b.z), bob=Math.sin(now*1.6+i)*.06;
+  box(v3(top.x,top.y+bob,top.z),v3(.34,.34,.34),col,{tint:.55+.3*g,edge:1,glow:.4+.5*g});
+  ring(v3(top.x,top.y-.05,top.z),.7,col,.35+.45*g,1.1);
+  ring(v3(top.x,b.y+AG_H+.16,top.z),.6,col,.18+.3*g,.8);
+  const a=now*(1.2+.3*i)+i; dotp(v3(top.x+Math.cos(a)*.7,top.y-.05,top.z+Math.sin(a)*.7),.05,col,.5+.5*g);
+  thin([v3(b.x,b.y+AG_H+.14,b.z),v3(top.x,top.y-.15+bob,top.z)],col,.3+.4*g,1);
+  cert(v3(b.x+.62,b.y+1.35,b.z+.55),1,.75);
+}
+function mcpNode(i,act){
+  const b=MCPS[i], col=COL.mcp;
+  box(v3(b.x,b.y+.06,b.z),v3(1.9,.12,1.4),col,{tint:.16,edge:.4});
+  box(v3(b.x,b.y+.12+.7,b.z),v3(1.6,1.4,1.1),col,{tint:.22+.1*act,edge:.55+.35*act,glow:.12*act});
+  for(let k=0;k<4;k++){ const y=b.y+.38+k*.3;
+    box(v3(b.x-.12,y,b.z+.56),v3(1.1,.18,.02),col,{tint:.32,edge:.55});
+    const on=Math.sin(now*(5+k)+i*2+k)>(act?-.2:.6); dotp(v3(b.x+.6,y,b.z+.57),.028,on?COL.app:COL.dim,.9); }
+  box(v3(b.x,b.y+1.55,b.z),v3(1.3,.05,.8),col,{tint:.5,edge:.9,glow:.25+.4*act});
+}
+function vault(s,t){
+  const V=VAULT, steel=COL.cm, zf=V.z+V.d/2;
+  box(v3(V.x,V.h/2,V.z-V.d/2+.06),v3(V.w,V.h,.12),steel,{tint:.12,edge:.3});
+  for(const sx of[-1,1]) box(v3(V.x+sx*(V.w/2-.08),V.h/2,V.z),v3(.16,V.h,V.d),steel,{tint:.18,edge:.5});
+  box(v3(V.x,V.h-.08,V.z),v3(V.w,.16,V.d),steel,{tint:.2,edge:.5});
+  box(v3(V.x,.08,V.z),v3(V.w,.16,V.d),steel,{tint:.2,edge:.5});
+  box(v3(V.x,2.2,V.z),v3(V.w-.3,.1,V.d-.1),steel,{tint:.18,edge:.4});
+  for(const dx of[-1.06,1.06]) box(v3(V.x+dx,V.h/2,V.z),v3(.08,V.h-.3,V.d-.1),steel,{tint:.16,edge:.35});
+  for(const sx of[-1,1]){ const x=V.x+sx*(V.w/2+.14); box(v3(x,V.h/2,zf+.85),v3(.22,V.h-.1,1.7),steel,{tint:.22,edge:.55});
+    for(let k=0;k<4;k++) box(v3(x-sx*.12,V.h/2,zf+.35+k*.33),v3(.02,V.h-.9,.06),COL.cm,{tint:.6,edge:.9,glow:.4}); }
+  const feed=s===3;
+  VCOMP.forEach(([cx,y,col],i)=>{
+    for(let k=0;k<4;k++){ const lift=(i===1&&s===2)?Math.max(0,Math.sin(clamp((t-2.5)/2)*Math.PI))*.25:0;
+      box(v3(cx-.6+k*.32,y+.1+.75+lift*(k===3?1:0),V.z+.1),v3(.22,1.5-(k%2)*.12,1.1),col,{tint:.32,edge:.7,glow:(feed&&(i<3||i===4))?.25:0}); }
+    lock(v3(cx+.62,y+1.75,zf),COL.cm,.95,.55);
+  });
+}
+function cloud(c,alpha){ const blobs=[[0,0,1.6],[-1.5,-.3,1.1],[1.6,-.25,1.2],[-.7,.75,1.05],[.8,.7,1.15],[-2.5,-.45,.7],[2.7,-.4,.75]];
+  const q=proj(c); if(!q) return;
+  items.push({z:q.z+.6,f:()=>{ const q=proj(c); const s=q.s;
+    const C=blobs.map(([dx,dy,r])=>[q.x+dx*s,q.y-dy*s,r*s]);
+    ctx.globalAlpha=alpha; ctx.fillStyle=rgba(COL.llm,.6);
+    C.forEach(([x,y,r])=>{ctx.beginPath();ctx.arc(x,y,r+1.6*DPR,0,7);ctx.fill();});
+    const g=ctx.createLinearGradient(0,q.y-1.8*s,0,q.y+1.2*s); g.addColorStop(0,rgba(mix(COL.bg,COL.llm,.2),1)); g.addColorStop(1,rgba(mix(COL.bg,COL.llm,.07),1));
+    ctx.fillStyle=g; C.forEach(([x,y,r])=>{ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill();});
+    ctx.globalAlpha=1; }});
+}
+function llmChip(act){ const c=LLM;
+  cloud(v3(c.x,c.y+.2,c.z-.9),1);
+  box(v3(c.x,c.y-.55,c.z),v3(1.5,.22,1.5),COL.llm,{tint:.3,edge:.8,glow:.2+.4*act});
+  box(v3(c.x,c.y-.36,c.z),v3(.8,.16,.8),COL.agent,{tint:.55,edge:1,glow:.4+.5*act});
+  for(let k=0;k<5;k++){ const o=-.6+k*.3; for(const [a,b] of [[v3(o,0,.75),v3(o,0,1.15)],[v3(o,0,-.75),v3(o,0,-1.15)],[v3(.75,0,o),v3(1.15,0,o)],[v3(-.75,0,o),v3(-1.15,0,o)]]){
+    const p1=add(v3(c.x,c.y-.55,c.z),a), p2=add(v3(c.x,c.y-.55,c.z),b); thin([p1,p2],COL.llm,.6,1.2); dotp(p2,.03,COL.agent,.4+.6*act); } }
+}
+function appPanel(A,act){ const c=A.c, w=APP_W, h=APP_H;
+  box(v3(c.x,c.y/2-.5,c.z-.1),v3(.08,c.y-1,.08),COL.steel,{tint:.2,edge:.35});
+  box(v3(c.x,.05,c.z-.1),v3(.9,.1,.6),COL.steel,{tint:.2,edge:.35});
+  box(v3(c.x,c.y,c.z-.12),v3(w+.14,h+.14,.08),COL.app,{tint:.14,edge:.45+.45*act,glow:.2*act});
+  texQuad(v3(c.x-w/2,c.y+h/2,c.z-.06),v3(c.x+w/2,c.y+h/2,c.z-.06),v3(c.x-w/2,c.y-h/2,c.z-.06),appScr[A.k],1,act?COL.app:null);
+}
+function outputs(s,t,act){
+  box(v3(OUT.x,.15,OUT.z),v3(8.2,.3,3),COL.out,{tint:.1,edge:.4});
+  const grow=s===8?ease((t-1)/1.5):s>8?1:0;
+  OUTG.forEach((ox,g)=>{ const col=g===3?"#c4b5fd":COL.out;
+    for(let k=0;k<6;k++){ const extra=(k===5&&g<3)?grow:1; if(extra<=0) continue;
+      box(v3(OUT.x+ox+k*.2,.3+.45*extra,OUT.z+.35),v3(.1,.9*extra,1.2),col,{tint:.32,edge:.75,glow:(k===5&&act)?.4:0}); } });
+  box(v3(DASH.x,DASH.y/2,DASH.z-.05),v3(.08,DASH.y,.08),COL.steel,{tint:.2,edge:.35});
+  box(v3(DASH.x,DASH.y+.1,DASH.z-.1),v3(2.94,1.84,.08),COL.out,{tint:.1,edge:.4+.5*act});
+  texQuad(v3(DASH.x-1.4,DASH.y+.95,DASH.z-.04),v3(DASH.x+1.4,DASH.y+.95,DASH.z-.04),v3(DASH.x-1.4,DASH.y-.75,DASH.z-.04),dashScr,1,act?COL.out:null);
+}
+function reference(act){ const r=REF, col=COL.ro;
+  for(const [dx,dz] of [[-2.6,-.6],[.1,-.6]]){ const x=r.x+dx, z=r.z+dz;
+    box(v3(x,1.3,z-.45),v3(2.4,2.6,.08),col,{tint:.1,edge:.3});
+    for(const sx of[-1,1]) box(v3(x+sx*1.17,1.3,z),v3(.06,2.6,.9),col,{tint:.16,edge:.4});
+    for(const y of[.05,1.3,2.55]) box(v3(x,y,z),v3(2.4,.08,.9),col,{tint:.18,edge:.4});
+    for(let row=0;row<2;row++) for(let k=0;k<8;k++){ const hh=.85+((k*7+row)%3)*.08;
+      box(v3(x-.95+k*.27,.1+row*1.25+hh/2,z+.05),v3(.2,hh,.7),col,{tint:.22+(k%3)*.05,edge:.45}); } }
+  for(let k=0;k<3;k++){ const x=r.x+2.4+k*1.2, z=r.z-.4;
+    box(v3(x,.75,z),v3(1.05,1.5,1.1),col,{tint:.18,edge:.45,glow:act&&k===1?.12:0});
+    for(let d=0;d<3;d++){ box(v3(x,.32+d*.45,z+.56),v3(.88,.36,.02),col,{tint:.26,edge:.5}); box(v3(x,.4+d*.45,z+.58),v3(.3,.05,.04),col,{tint:.5,edge:.8}); } }
+  lock(v3(r.x+.9,3.15,r.z),COL.ro,act?1:.6,.8);
+}
+
+/* Fixed paths */
+const surf=(x,z)=>v3(x,T+.01,z);
+const PATH = {
+  chatOut: ENG.map((u,i)=>route(arc(v3(u.x+.4,2.2,u.z-.1),add(agentTop(i),v3(-.5,0,.25)),2.6))),
+  chatBack: ENG.map((u,i)=>route(arc(add(agentTop(i),v3(-.5,-.35,.45)),v3(u.x+.4,1.9,u.z+.15),1.7))),
+  propose: ENG.map((u,i)=>route(arc(v3(u.x,2.1,u.z+.9),v3(LEAD.x,2.3,LEAD.z+.3),1.6))),
+  release: route(arc(v3(LEAD.x+.4,2.4,LEAD.z),v3(VCOMP[1][0],VCOMP[1][1]+1.7,VAULT.z+VAULT.d/2+.2),1.6)),
+  load: [0,1,2].map(i=>route(arc(vaultMouth(i),agentTop(i),1.2))),
+  memory: [0,1,2].map(i=>route(arc(vaultMouth(4),add(agentTop(i),v3(.3,-.3,0)),.6))),
+  sched: [0,1,2].map(i=>route(arc(v3(CLOCK.x,CLOCK.y+1.2,CLOCK.z),agentTop(i),.8))),
+  llm: [-.12,.12].map(d=>route(arc(add(agentTop(2),v3(d,0,0)),v3(LLM.x+d,LLM.y-.55,LLM.z+.75),2.2))),
+  bus: AGENTS.map(a=>route(surf(a.x,a.z+.76),surf(a.x,HUB.z),surf(HUB.x,HUB.z))),
+  toMcp: MCPS.map(m=>route(surf(HUB.x,HUB.z),surf(m.x-1.1,HUB.z),surf(m.x-1.1,m.z+.8),surf(m.x,m.z+.8),surf(m.x,m.z+.72))),
+  apps: [0,1].map(i=>route(arc(v3(MCPS[i].x,MCPS[i].y+1.6,MCPS[i].z),v3(APPS[i].c.x-APP_W/2-.05,APPS[i].c.y-.3,APPS[i].c.z-.06),1.4))),
+  mail: route(arc(add(agentTop(2),v3(.3,-.4,.3)),v3(APPS[2].c.x-APP_W/2-.05,APPS[2].c.y-.2,APPS[2].c.z-.06),2.6)),
+  refIn: route(arc(v3(REF.x-1.2,2.7,REF.z-.6),v3(MCPS[2].x+.3,MCPS[2].y+1.6,MCPS[2].z),1.4)),
+  out: [0,1,2].map(i=>route(arc(agentFront(i,1.2),v3(OUT.x+OUTG[i]+.5,1.0,OUT.z+.35),2.4))),
+  metrics: route(arc(agentFront(1,1.6),v3(OUT.x+OUTG[3]+.5,1.0,OUT.z+.35),3)),
+  review: ENG.map((u,i)=>route(arc(v3(u.x+.2,1.9,u.z+1.1),v3(OUT.x+OUTG[i]+.5,1.3,OUT.z),1.4))),
+};
+
+function buildScene(s,t){
+  items=[];glows=[];flats=[];
+  platform(-17.5,18,-11,10.5,"#1d2a44",0,2);                         // floor
+  // Windows environment: one raised slab, agents on the left, MCP servers on the right
+  box(v3((PLAT.x0+PLAT.x1)/2,T/2,0),v3(PLAT.x1-PLAT.x0,T,PLAT.z1-PLAT.z0),COL.agent,{tint:.09,edge:.45});
+  platform(PLAT.x0+.25,DIV-.15,PLAT.z0+.25,PLAT.z1-.25,COL.agent,T+.005,.5);
+  platform(DIV+.15,PLAT.x1-.25,PLAT.z0+.25,PLAT.z1-.25,COL.mcp,T+.005,.5);
+  dashed([surf(DIV,PLAT.z0+.1),surf(DIV,PLAT.z1-.1)],COL.mcp,.55,1.2,0);
+  for(let r=0;r<2;r++) for(let k=0;k<4;k++) box(v3(-4.5+k*.5,T+.02,3.3-r*.5),v3(.42,.04,.42),COL.agent,{tint:.2,edge:.35});
+
+  const busy=[[1,1,1],[1,1,1],[0,1,0],[1,1,1],[0,0,1],[0,0,1],[1,0,1],[1,1,0],[1,1,1]][s];
+  // circuit bus from agents to the MCP servers
+  const busRO=s===7, busCol=busRO?COL.ro:COL.agent, busOn=s===0||s===6||s===7;
+  PATH.bus.forEach((p,i)=>{ thin(p,busCol,.3,1); if(busOn&&busy[i]) stream(p,busCol,.8,3,.35,busRO,.05); });
+  PATH.toMcp.forEach((p,i)=>{ thin(p,busRO&&i===2?COL.ro:COL.mcp,.3,1); if(busOn&&(i<2?!busRO:true)) stream(p,busRO?COL.ro:COL.mcp,.8,3,.35,busRO,.05); });
+  dotp(HUB,.12,COL.mcp,.8);
+
+  AGENTS.forEach((_,i)=>agentNode(i,s===0?.4:busy[i]));
+  MCPS.forEach((_,i)=>mcpNode(i,(s===6&&i<2)||(s===7&&i===2)?1:s===0?.3:0));
+
+  // scheduled task (clock + calendar)
+  box(v3(CLOCK.x,CLOCK.y+.6,CLOCK.z),v3(1.05,1.05,.3),COL.agent,{tint:.2,edge:.6,glow:s===4?.25:0});
+  texQuad(v3(CLOCK.x-.45,CLOCK.y+1.05,CLOCK.z+.16),v3(CLOCK.x+.45,CLOCK.y+1.05,CLOCK.z+.16),v3(CLOCK.x-.45,CLOCK.y+.15,CLOCK.z+.16),clockScr,1);
+  box(v3(CAL.x,CAL.y+.5,CAL.z-.1),v3(1.1,.95,.12),COL.agent,{tint:.2,edge:.6,glow:s===4?.25:0});
+  texQuad(v3(CAL.x-.5,CAL.y+.92,CAL.z-.03),v3(CAL.x+.5,CAL.y+.92,CAL.z-.03),v3(CAL.x-.5,CAL.y+.08,CAL.z-.03),calScr,1);
+
+  // people
+  ENG.forEach((_,i)=>engineer(i,s,t,s===1||s===2||s===8));
+  person(LEAD,COL.human,true,s===2?.2:0);
+  box(v3(LEAD.x+.38,1.25,LEAD.z+.3),v3(.36,.48,.04),COL.human,{tint:.5,edge:.9,glow:s===2?.4:0});   // tablet
+
+  vault(s,t);
+  llmChip(s===5?1:0);
+  APPS.forEach((A,i)=>appPanel(A,s===6?1:0));
+  outputs(s,t,s===8?1:0);
+  reference(s===7);
+
+  // ---- flows ----
+  const dimAll=s===0?.45:1;
+  const aChat=onStep([0,1],t)*dimAll;
+  if(aChat>0) ENG.forEach((u,i)=>{ const k=s===1?ease((t-i*.35)/.6):aChat, kb=s===1?ease((t-1.8-i*.35)/.6):aChat;
+    flow(PATH.chatOut[i],COL.human,k,{n:5,speed:.35}); flow(PATH.chatBack[i],COL.agent,kb,{n:5,speed:.35});
+    if(s===1){ bubble(v3(u.x+.4,2.45,u.z-.1),COL.human,k,true); } });
+  const aGov=onStep([0,2],t)*dimAll;
+  if(aGov>0){ ENG.forEach((_,i)=>flow(PATH.propose[i],COL.human,aGov*(s===2?ease((t-i*.3)/.6):1),{n:3,speed:.35}));
+    const k=s===2?ease((t-2)/1):aGov; flow(PATH.release,COL.human,k,{n:5,speed:.4});
+    badge(along(PATH.release,.5),COL.app,k); if(s===2) lock(along(PATH.release,.97),COL.cm,ease((t-3.2)/.6)); }
+  const aLoad=onStep([0,3],t)*dimAll;
+  if(aLoad>0){ PATH.load.forEach((p,i)=>flow(p,COL.agent,aLoad*(s===3?ease((t-i*.35)/.6):1),{n:5,speed:.35}));
+    PATH.memory.forEach((p,i)=>flow(p,COL.agent,aLoad*(s===3?ease((t-1.4-i*.3)/.6):1)*.8,{n:3,speed:.4})); }
+  const aSch=onStep([0,4],t)*dimAll;
+  if(aSch>0) PATH.sched.forEach((p,i)=>flow(p,COL.agent,aSch*(s===4?(i===2?ease((t-.8)/.6):.3*ease((t-1.6)/.6)):1),{n:4,speed:.45}));
+  const aLLM=onStep([0,5],t)*dimAll;
+  if(aLLM>0){ flow(PATH.llm[0],COL.agent,aLLM,{dash:1,n:6,speed:.25}); flow(PATH.llm[1],COL.white,aLLM*.8,{dash:1,n:5,speed:.25,rev:true,size:.06});
+    lock(add(along(PATH.llm[0],.5),v3(0,.5,0)),COL.agent,aLLM); }
+  const aMcp=onStep([0,6],t)*dimAll;
+  if(aMcp>0){ PATH.apps.forEach((p,i)=>flow(p,COL.agent,aMcp*(s===6?ease((t-.6-i*.4)/.6):1),{n:5,speed:.3,both:true}));
+    flow(PATH.mail,COL.agent,aMcp*(s===6?ease((t-1.6)/.6):1),{n:5,speed:.3,both:true}); }
+  const aRef=onStep([0,7],t)*dimAll;
+  if(aRef>0){ flow(PATH.refIn,COL.ro,aRef,{dash:1,n:5,speed:.3});
+    if(s===7) badge(add(REF,v3(-1.2,3.4,-.6)),COL.human,ease((t-3)/.5)*clamp(1-(t-6)),"x"); }
+  const aOut=onStep([0,8],t)*dimAll;
+  if(aOut>0){ PATH.out.forEach((p,i)=>flow(p,COL.agent,aOut*(s===8?ease((t-i*.3)/.6):1),{n:4,speed:.3}));
+    flow(PATH.metrics,COL.agent,aOut*(s===8?ease((t-1.2)/.6):1)*.8,{n:3,speed:.3});
+    PATH.review.forEach((p,i)=>flow(p,COL.human,aOut*(s===8?ease((t-2.4-i*.3)/.6):1),{n:3,speed:.3,rev:true})); }
+
+  return {aChat,aGov,aLoad,aSch,aLLM,aMcp,aRef,aOut};
+}
+
+function placeLabels(s,t,st){
+  for(const k in LBL) LBL[k]._seen=false;
+  const on=c=>c?1:0, two=mode>.5, all=s===0;
+  label("env", v3(PLAT.x0+2,T,PLAT.z1), `<b>${NAMES.env}</b><small>agent domain</small>`, COL.agent, on([0,3,5,6,7].includes(s)));
+  label("mcpz", v3(DIV+2.6,T,PLAT.z1), `<b>${NAMES.mcpZone}</b><small>same domain</small>`, COL.mcp, on(all||s===6||s===7));
+  NAMES.agents.forEach((id,i)=>label("ag"+i, add(agentTop(i),v3(0,.55,0)), `<b>${id}</b><small>as ${NAMES.short[i]}</small>`, COL.agent,
+    on(s===1||s===3||(s===4&&i===2)||(s===5&&i===2)||(s===8))));
+  NAMES.mcp.forEach((id,i)=>label("mcp"+i, v3(MCPS[i].x,MCPS[i].y+1.75,MCPS[i].z), `<b>${id}</b>`, COL.mcp, on((s===6&&i<2)||(s===7&&i===2)||(all&&!two))));
+  label("engs", v3(ENG[1].x,3.2,ENG[1].z), `<b>Engineers</b><small>PKI cert</small>`, COL.human, on(all));
+  ENG.forEach((u,i)=>label("e"+i, v3(u.x,2.55,u.z+1.05), `<b>${NAMES.engineers[i]}</b><small>PKI cert</small>`, COL.human, on(s===1||s===2||s===8)));
+  label("lead", v3(LEAD.x,2.55,LEAD.z), `<b>${NAMES.lead}</b><small>approves &amp; releases</small>`, COL.human, on(all||s===2));
+  label("cm", v3(VAULT.x,VAULT.h+.25,VAULT.z), `<b>${NAMES.cm}</b><small>locked</small>`, COL.cm, on(all||s===2||s===3));
+  [0,1,2,4].forEach(i=>label("vf"+i, v3(VCOMP[i][0],VCOMP[i][1]+1.85,VAULT.z+VAULT.d/2), `<b>${VCOMP[i][3]}</b>${i<3?"<small>SKILL.md</small>":""}`, VCOMP[i][2], on((s===2||s===3)&&!two)));
+  label("sched", v3(CLOCK.x+.9,CLOCK.y+1.45,CLOCK.z), `<b>Scheduled task</b><small>weekdays 06:00</small>`, COL.agent, on(all||s===4));
+  label("llm", v3(LLM.x,LLM.y+1.9,LLM.z-.9), `<b>${NAMES.llm}</b><small>off-premises cloud</small>`, COL.llm, on(all||s===5));
+  label("https", add(along(PATH.llm[0],.5),v3(0,1.15,0)), `<b>HTTPS API</b><small>encrypted</small>`, COL.agent, st.aLLM*on(s===5));
+  APPS.forEach((A,i)=>label("a"+i, v3(A.c.x,A.c.y+APP_H/2+.25,A.c.z), `<b>${A.name}</b>`, COL.app, on(all||s===6)));
+  label("ref", v3(REF.x+.6,3.6,REF.z), `<b>${NAMES.ref}</b><small>read-only</small>`, COL.ro, on(all||s===7));
+  NAMES.refParts.forEach((n,i)=>label("rp"+i, [v3(REF.x-2.6,2.75,REF.z-.6),v3(REF.x+.1,2.75,REF.z-.6),v3(REF.x+3.6,1.75,REF.z-.4)][i], `<b>${n}</b>`, COL.ro, on(s===7&&!two)));
+  label("out", v3(OUT.x-1.6,1.55,OUT.z+.35), `<b>${NAMES.out}</b><small>only writable path</small>`, COL.out, on(all||s===8));
+  NAMES.short.forEach((n,i)=>label("of"+i, v3(OUT.x+OUTG[i]+.5,1.2,OUT.z+1.1), `<b>/${n}</b>`, COL.out, on(s===8&&!two)));
+  label("met", v3(DASH.x,DASH.y+1.15,DASH.z), `<b>${NAMES.metrics}</b>`, "#c4b5fd", on(s===8));
+  for(const k in LBL) if(!LBL[k]._seen) LBL[k].style.opacity=0;
+}
+
+/* =====================================================================
+   Step control, camera, input
+   ===================================================================== */
+const CAMS = [
+  {tx:1,ty:.5,tz:-.5,yaw:.2,pitch:.62,dist:42},
+  {tx:-6,ty:1.4,tz:-1.2,yaw:.1,pitch:.6,dist:26},
+  {tx:-6.5,ty:2.2,tz:-4,yaw:.42,pitch:.45,dist:26},
+  {tx:-.6,ty:1.6,tz:-4.2,yaw:.08,pitch:.5,dist:23},
+  {tx:-.8,ty:1.2,tz:.6,yaw:.05,pitch:.55,dist:19},
+  {tx:7,ty:3.4,tz:-5,yaw:-.2,pitch:.36,dist:25},
+  {tx:10,ty:1.8,tz:-2,yaw:-.25,pitch:.55,dist:24},
+  {tx:8.5,ty:1.2,tz:4,yaw:-.2,pitch:.5,dist:22},
+  {tx:-5,ty:1,tz:4,yaw:.15,pitch:.52,dist:26},
+];
+let step=0, stepStart=performance.now(), now=0, playing=false;
+const DURATION=[7,7,8,7,7,7,8,8,8]; // seconds per step when playing
+
+const rail=document.getElementById("rail");
+STEPS.forEach((s,i)=>{const b=document.createElement("button");b.className="chap";b.innerHTML=`<div class="seg"><i></i></div><span>${String(i).padStart(2,"0")} ${s.short}</span>`;b.onclick=()=>{setPlay(false);go(i)};b.title=s.title;rail.appendChild(b);});
+const legendEl=document.getElementById("legend");
+
+function go(i){
+  step=clamp(i,0,STEPS.length-1); stepStart=performance.now(); camGoal=CAMS[step];
+  const s=STEPS[step];
+  document.getElementById("stepno").innerHTML=`<b>${String(step).padStart(2,"0")}</b> / ${String(STEPS.length-1).padStart(2,"0")}`;
+  document.getElementById("title").textContent=s.title;
+  document.getElementById("body").innerHTML=s.body;
+  const k=document.getElementById("key"); k.style.setProperty("--accent",css(s.accent)); k.innerHTML=`<span class="k">${s.key[0]}</span>${s.key[1]}`;
+  legendEl.querySelectorAll("span[data-k]").forEach(sp=>sp.classList.toggle("off",!s.hi.includes(sp.dataset.k)));
+  [...rail.children].forEach((c,j)=>{c.classList.toggle("on",j===step);c.classList.toggle("done",j<step);});
+}
+function setPlay(p){playing=p;document.getElementById("play").textContent=p?"❚❚":"▶";}
+function setView(two){ modeGoal=two?1:0; document.getElementById("v2").classList.toggle("on",two); document.getElementById("v3").classList.toggle("on",!two);
+  document.getElementById("hint").innerHTML = two
+    ? `<kbd>drag</kbd> pan · <kbd>scroll</kbd> zoom · <kbd>L</kbd> labels · <kbd>V</kbd> 2D/3D · <kbd>R</kbd> reset`
+    : `<kbd>drag</kbd> orbit · <kbd>right-drag</kbd> pan · <kbd>scroll</kbd> zoom · <kbd>L</kbd> labels · <kbd>V</kbd> 2D/3D · <kbd>R</kbd> reset`;
+  try{localStorage.setItem("agent-view",two?"2d":"3d")}catch(e){} }
+function resetView(){ camGoal=CAMS[step]; Object.assign(flat,FLAT_HOME); }
+document.getElementById("prev").onclick=()=>{setPlay(false);go(step-1)};
+document.getElementById("next").onclick=()=>{setPlay(false);go(step+1)};
+document.getElementById("play").onclick=()=>{ if(!playing&&step===STEPS.length-1) go(0); setPlay(!playing); };
+document.getElementById("v2").onclick=()=>setView(true);
+document.getElementById("v3").onclick=()=>setView(false);
+
+window.addEventListener("keydown",e=>{
+  if(e.key==="ArrowRight"||e.key==="]"){setPlay(false);go(step+1)}
+  else if(e.key==="ArrowLeft"||e.key==="["){setPlay(false);go(step-1)}
+  else if(e.key===" "){e.preventDefault();document.getElementById("play").click()}
+  else if(e.key==="l"||e.key==="L"){document.body.classList.toggle("hidelabels")}
+  else if(e.key==="v"||e.key==="V"){setView(modeGoal<.5)}
+  else if(e.key==="r"||e.key==="R"){resetView()}
+  else if(e.key>="0"&&e.key<="8"){setPlay(false);go(+e.key)}
+});
+
+// Orbit / pan / zoom, all clamped to LIMIT so the scene can't be lost
+let drag=null;
+cv.addEventListener("contextmenu",e=>e.preventDefault());
+cv.addEventListener("pointerdown",e=>{drag={x:e.clientX,y:e.clientY,pan:e.button===2||e.shiftKey||modeGoal>.5};cv.setPointerCapture(e.pointerId);cv.classList.add("drag");camGoal=null;});
+cv.addEventListener("pointermove",e=>{ if(!drag)return; const dx=e.clientX-drag.x,dy=e.clientY-drag.y; drag.x=e.clientX;drag.y=e.clientY;
+  if(modeGoal>.5){ flat.cx-=dx*DPR/oScale; flat.cz-=dy*DPR/oScale; }
+  else if(drag.pan){const s=cam.dist*.0016;cam.tx-=(right.x*dx-up.x*dy)*s;cam.ty+=up.y*dy*s;cam.tz-=(right.z*dx-up.z*dy)*s;}
+  else{cam.yaw-=dx*.006;cam.pitch+=dy*.005;}
+  clampCam(); });
+cv.addEventListener("pointerup",()=>{drag=null;cv.classList.remove("drag")});
+cv.addEventListener("wheel",e=>{e.preventDefault();
+  if(modeGoal>.5) flat.zoom*=Math.exp(-e.deltaY*.0012); else {camGoal=null;cam.dist*=Math.exp(e.deltaY*.001);}
+  clampCam();},{passive:false});
+
+/* =====================================================================
+   Main loop
+   ===================================================================== */
+const CAPS=["status","chat","change control","skills","scheduled task","llm call","mcp","reference","outputs"];
+function frame(ts){
+  now=ts/1000; const t=(ts-stepStart)/1000;
+  if(playing && t>DURATION[step]){ if(step<STEPS.length-1) go(step+1); else setPlay(false); }
+  if(camGoal){ const k=.045; for(const key of ["tx","ty","tz","yaw","pitch","dist"]) cam[key]+= (camGoal[key]-cam[key])*k; }
+  mode += clamp(modeGoal-mode,-.035,.035);
+  setupCam();
+
+  ENG.forEach((_,i)=>drawEng(i,step,t)); drawApps(step,t); drawDash(step,t); drawClock(); drawCal(step);
+  drawLog(step,t); document.getElementById("screencap").textContent=CAPS[step];
+
+  const st=buildScene(step,t);
+  ctx.setTransform(1,0,0,1,0,0);
+  const bg=ctx.createRadialGradient(cv.width*.4,cv.height*.4,0,cv.width*.4,cv.height*.4,Math.max(cv.width,cv.height)*.8);
+  bg.addColorStop(0,"#101a30");bg.addColorStop(1,COL.bg);ctx.fillStyle=bg;ctx.fillRect(0,0,cv.width,cv.height);
+  flats.forEach(f=>f());
+  items.sort((a,b)=>b.z-a.z).forEach(it=>it.f());
+  ctx.globalCompositeOperation="lighter"; glows.forEach(f=>f()); ctx.globalCompositeOperation="source-over";
+  placeLabels(step,t,st);
+
+  const seg=rail.children[step]?.querySelector("i"); if(seg) seg.style.width=(playing?clamp(t/DURATION[step])*100:100)+"%";
+  [...rail.children].forEach((c,j)=>{ if(j!==step){ c.querySelector("i").style.width=j<step?"100%":"0"; } });
+  requestAnimationFrame(frame);
+}
+resize(); go(0); Object.assign(cam,CAMS[0]);
+try{ if(localStorage.getItem("agent-view")==="2d"){ setView(true); mode=1; } }catch(e){}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

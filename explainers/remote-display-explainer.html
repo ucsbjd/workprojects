@@ -1,0 +1,690 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Remote Display Path</title>
+<!--
+  Remote Display Path: an interactive explainer.
+  Fully self-contained: no network, no CDN, no fonts to download, no Java.
+  Open this file directly in any modern browser (Edge, Chrome, Firefox).
+
+  To change the words, edit the STEPS array near the top of the <script>.
+  To rename machines, edit NAMES just above it.
+-->
+<style>
+  :root{
+    --bg:#0b0f1a; --bg2:#111726; --panel:rgba(15,20,34,.86); --line:rgba(255,255,255,.08);
+    --text:#e7ecf5; --muted:#8a94a8; --dim:#5b6478;
+    --vdi:#5ad1ff; --rds:#ffb454; --mvm:#a78bfa; --eng:#6ee7a8; --ops:#ff7a9c; --vnc:#6ee7a8;
+    --mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas#scene{width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+  canvas#scene.drag{cursor:grabbing}
+  #labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+  .lbl{position:absolute;transform:translate(-50%,-100%);white-space:nowrap;font-size:11px;letter-spacing:.02em;
+       padding:3px 8px;border-radius:999px;background:rgba(11,15,26,.78);border:1px solid var(--c,#fff3);color:var(--text);
+       transition:opacity .35s}
+  .lbl b{color:var(--c);font-weight:600}
+  .lbl small{color:var(--muted);font-family:var(--mono);font-size:10px;margin-left:6px}
+  .lbl::after{content:"";position:absolute;left:50%;top:100%;width:1px;height:10px;background:var(--c,#fff3);opacity:.6}
+  .hidelabels .lbl{opacity:0!important}
+
+  header{position:fixed;left:20px;top:16px;pointer-events:none}
+  header .kicker{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.14em;text-transform:uppercase}
+  header h1{margin:4px 0 0;font-size:22px;font-weight:650;letter-spacing:-.01em}
+  header p{margin:4px 0 0;color:var(--muted);font-size:13px}
+
+  #panel{position:fixed;right:16px;top:16px;bottom:96px;width:380px;background:var(--panel);backdrop-filter:blur(10px);
+         border:1px solid var(--line);border-radius:14px;padding:18px 18px 14px;display:flex;flex-direction:column;gap:12px;overflow:auto}
+  #stepno{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  #stepno b{color:var(--text);font-size:20px;font-weight:600}
+  #title{margin:0;font-size:20px;line-height:1.2;font-weight:650}
+  #body{margin:0;color:#c5cbd8;font-size:14px;line-height:1.55}
+  #body b{color:var(--text)}
+  #body code, .key code{font-family:var(--mono);font-size:12.5px;background:rgba(255,255,255,.06);padding:1px 5px;border-radius:4px;color:#f2f5fa}
+  .key{border-left:2px solid var(--accent,#5ad1ff);padding:8px 10px;background:rgba(255,255,255,.03);border-radius:0 8px 8px 0;font-size:13px;color:#d6dbe6;line-height:1.5}
+  .key .k{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent,#5ad1ff);margin-bottom:3px}
+  .screenwrap{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#000}
+  .screenwrap .cap{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:6px 10px;border-bottom:1px solid var(--line);background:var(--bg2);display:flex;justify-content:space-between}
+  #screen{display:block;width:100%;height:auto;aspect-ratio:16/10}
+  #split{display:none}
+  #split .bar{display:flex;height:10px;border-radius:5px;overflow:hidden;margin:6px 0 4px}
+  #split .bar i{display:block;height:100%}
+  #split .legend{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+  #split .legend b{font-family:var(--mono)}
+
+  #dock{position:fixed;left:16px;right:16px;bottom:16px;height:64px;background:var(--panel);backdrop-filter:blur(10px);
+        border:1px solid var(--line);border-radius:14px;display:flex;align-items:center;gap:12px;padding:0 12px}
+  #dock button{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text);border-radius:9px;height:38px;min-width:38px;
+               font:inherit;font-size:14px;cursor:pointer;padding:0 12px}
+  #dock button:hover{background:rgba(255,255,255,.12)}
+  #dock button:focus-visible{outline:2px solid var(--vdi);outline-offset:2px}
+  #rail{flex:1;display:flex;gap:6px;align-items:stretch;height:38px}
+  #dock .chap{flex:1;border:0;background:none;padding:0;height:auto;border-radius:0;cursor:pointer;display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:0;color:var(--dim)}
+  .chap .seg{height:4px;border-radius:2px;background:rgba(255,255,255,.1);position:relative;overflow:hidden}
+  .chap .seg i{position:absolute;inset:0;width:0;background:var(--text)}
+  .chap.done .seg i{width:100%;background:var(--muted)}
+  .chap.on .seg i{background:var(--text)}
+  .chap span{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left}
+  .chap.on span{color:var(--text)}
+  .chap.done span{color:var(--muted)}
+  @media (max-width:1500px){#hint{display:none!important}}
+  #views{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;flex:none}
+  #dock #views button{border:0;border-radius:0;min-width:44px;background:transparent;color:var(--muted);font-family:var(--mono);font-size:12px;letter-spacing:.06em}
+  #dock #views button.on{background:rgba(255,255,255,.14);color:var(--text)}
+  .layers{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:11.5px;color:var(--muted);padding-top:2px}
+  .layers span{display:inline-flex;align-items:center;gap:6px}
+  .layers i{display:inline-block;width:12px;height:12px;border-radius:2px;border:1.5px solid currentColor}
+  #hint{font-family:var(--mono);font-size:10.5px;color:var(--dim);white-space:nowrap}
+  #hint kbd{font-family:inherit;border:1px solid var(--line);border-radius:4px;padding:0 4px;color:var(--muted)}
+
+  @media (max-width: 860px){
+    header{left:16px;top:12px}
+    header h1{font-size:17px} header p{display:none}
+    #panel{left:16px;right:16px;top:auto;bottom:88px;width:auto;max-height:46vh;padding:14px}
+    #hint{display:none}
+    .chap span{display:none}
+    #dock{height:58px}
+    .screenwrap{display:none}
+    .lbl{font-size:9.5px;padding:2px 6px} .lbl small{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="scene" aria-label="3D diagram of the remote display path"></canvas>
+  <div id="labels"></div>
+</div>
+
+<header>
+  <div class="kicker">Explainer · Remote display path</div>
+  <h1>How the mission HCIs reach your desk</h1>
+  <p>Console → VDI desktop → SSH → VNC server → mission suite → VNC viewer</p>
+</header>
+
+<aside id="panel" aria-live="polite">
+  <div id="stepno"></div>
+  <h2 id="title"></h2>
+  <p id="body"></p>
+  <div id="split">
+    <div style="font-size:12px;color:var(--muted)">Where the mission suite's processes run</div>
+    <div class="bar"><i style="width:90%;background:var(--mvm)"></i><i style="width:10%;background:var(--rds)"></i></div>
+    <div class="legend"><span><b style="color:var(--mvm)">90%</b> backend · mission VM</span><span><b style="color:var(--rds)">10%</b> HCIs · display server</span></div>
+  </div>
+  <div class="key" id="key"></div>
+  <div class="layers" title="How each rack is built, from the outside in">
+    <span style="color:#8a94a8"><i></i>Rack</span>
+    <span style="color:#6ee7a8"><i style="height:5px"></i>Top-of-rack switch</span>
+    <span style="color:#c5cbd8"><i style="height:7px;background:rgba(255,255,255,.12)"></i>Hypervisor (physical server)</span>
+    <span style="color:#c5cbd8"><i style="background:rgba(255,255,255,.25)"></i>VM</span>
+    <span style="color:#c5cbd8"><i style="width:7px;height:7px;background:currentColor"></i>Application</span>
+  </div>
+  <div class="screenwrap">
+    <div class="cap"><span>What the engineer sees</span><span id="screencap"></span></div>
+    <canvas id="screen" width="640" height="400"></canvas>
+  </div>
+</aside>
+
+<nav id="dock">
+  <button id="prev" title="Previous step (←)">←</button>
+  <button id="play" title="Play / pause (Space)">▶</button>
+  <div id="rail"></div>
+  <button id="next" title="Next step (→)">→</button>
+  <div id="views" role="group" aria-label="View"><button id="v2" title="Flat 2D diagram (V)">2D</button><button id="v3" class="on" title="3D scene (V)">3D</button></div>
+  <div id="hint"><kbd>drag</kbd> orbit · <kbd>right-drag</kbd> pan · <kbd>scroll</kbd> zoom · <kbd>L</kbd> labels · <kbd>V</kbd> 2D/3D · <kbd>R</kbd> reset</div>
+</nav>
+
+<script>
+"use strict";
+/* =====================================================================
+   CONTENT: edit these to change names and wording. Nothing else needed.
+   ===================================================================== */
+const NAMES = {
+  console: "Engineer console",
+  vdiRack: "VDI rack",
+  vdi:     "vdi-03",
+  vdiHost: "hv-a2",
+  rds:     "rds01",
+  rdsLong: "Remote display server",
+  rdsRack: "Display rack",
+  rdsHost: "hv-b1",
+  mvm:     "mission-vm01",
+  mvmLong: "Mission VM",
+  mvmRack: "Mission rack",
+  mvmHost: "hv-b2",
+  siteA:   "Site A · operations floor",
+  siteB:   "Site B · remote data center",
+  suite:   "mission-suite",
+};
+
+const STEPS = [
+  { short:"Overview", title:"Two sites, three racks",
+    body:`The engineer sits at a <b>console</b> on the operations floor. Everything they use runs in racks of equipment: a <b>${NAMES.vdiRack}</b> at Site A, and a <b>${NAMES.rdsRack}</b> and <b>${NAMES.mvmRack}</b> at Site B. In each rack, a <b>top-of-rack switch</b> connects physical servers running a <b>hypervisor</b>. The hypervisors host <b>virtual machines</b>, and the applications run inside the VMs.`,
+    key:["The idea","Each hop only moves <b>keystrokes and pixels</b>. The real work happens on the far side of the network."],
+    accent:"--vdi" },
+  { short:"VDI login", title:"Log into a desktop from the VDI pool",
+    body:`The console is little more than a window. When the engineer logs in, the VDI broker hands them a Windows VM, <code>${NAMES.vdi}</code>, running on hypervisor <code>${NAMES.vdiHost}</code> in the ${NAMES.vdiRack}. Its screen streams to the console through the rack's switch, and their keyboard and mouse stream back.`,
+    key:["Who am I?","Logged in as <code>engineer</code> on a Windows VM in a rack, not on a PC under the desk."],
+    accent:"--vdi" },
+  { short:"SSH", title:"SSH to the remote display server",
+    body:`From the VDI desktop, the engineer opens a terminal and runs <code>ssh engineer@${NAMES.rds}</code>. The connection leaves ${NAMES.vdi}, goes through the ${NAMES.vdiRack}'s switch, crosses the WAN, and enters the ${NAMES.rdsRack}'s switch at Site B. It ends at <code>${NAMES.rds}</code>, a Linux VM on hypervisor <code>${NAMES.rdsHost}</code>. SSH carries text only, encrypted.`,
+    key:["Text, not pixels","An SSH session is a command line. No graphics travel over it here."],
+    accent:"--rds" },
+  { short:"Start VNC", title:"Start a VNC server",
+    body:`<code>vncserver :1</code> starts a new application inside ${NAMES.rds}: a VNC server that owns a <b>virtual display</b>. That display exists only in memory. Programs can draw windows on it, but nobody is watching it yet. Display <code>:1</code> listens on port <code>5901</code>.`,
+    key:["Why a virtual display?","The HCIs need a screen to draw on. VNC gives them one that keeps running whether or not anyone is connected."],
+    accent:"--vnc" },
+  { short:"Switch user", title:"Switch to the ops user",
+    body:`The mission software runs under a shared operations account, so the engineer runs <code>su - ops</code>. They then point <code>DISPLAY</code> at <code>:1</code>, so any window ops opens lands on the virtual display.`,
+    key:["Same shell, new identity","Still inside the SSH session, but every command now runs as <code>ops</code>."],
+    accent:"--ops" },
+  { short:"Mission suite", title:"Mission suite",
+    body:`<code>${NAMES.suite} start</code> brings up the whole system. About <b>90%</b> of its processes are backend services, running as applications inside <code>${NAMES.mvm}</code>: a large VM that has hypervisor <code>${NAMES.mvmHost}</code> to itself. The other <b>10%</b> are the <b>HCIs</b>, which run inside ${NAMES.rds} and draw into display <code>:1</code>. The HCIs talk to the backend through the two racks' switches.`,
+    key:["Split by design","Heavy compute sits on the big VM. Only the user-facing windows live on the display server."],
+    accent:"--mvm", split:true },
+  { short:"Back out", title:"Log back out to Windows",
+    body:`The engineer types <code>exit</code> twice: once to leave <code>ops</code>, once to close SSH. The terminal is gone, but the VNC server and the mission suite <b>keep running</b>. They were started detached, so they do not belong to the SSH session.`,
+    key:["Nothing stopped","The HCIs are still drawing on display :1. There is just nobody looking yet."],
+    accent:"--rds", split:true },
+  { short:"VNC viewer", title:"Connect a VNC viewer and see the HCIs",
+    body:`Back on the Windows desktop, the engineer opens a <b>VNC viewer</b> application and connects to <code>${NAMES.rds}:1</code>. The pixels of the virtual display travel back the same way: ${NAMES.rdsRack} switch, WAN, ${NAMES.vdiRack} switch, ${NAMES.vdi}, and on to the console. Clicks and keystrokes travel the other way, into the HCIs.`,
+    key:["The whole chain","Console ⇄ VDI desktop ⇄ VNC ⇄ display :1 ⇄ HCIs ⇄ mission VM backend."],
+    accent:"--vnc", split:true },
+];
+
+/* Terminal lines typed in each step (shown on the engineer's screen). */
+const TERM = {
+  2:[ ["C:\\Users\\engineer> ","ssh engineer@"+NAMES.rds], ["","engineer@"+NAMES.rds+"'s password: ********"], ["","Last login: from "+NAMES.vdi], ],
+  3:[ ["[engineer@"+NAMES.rds+" ~]$ ","vncserver :1 -geometry 1920x1080"], ["","New '"+NAMES.rds+":1 (engineer)' desktop is "+NAMES.rds+":1"],
+      ["[engineer@"+NAMES.rds+" ~]$ ","xhost +SI:localuser:ops"], ["","localuser:ops being added to access control list"] ],
+  4:[ ["[engineer@"+NAMES.rds+" ~]$ ","su - ops"], ["","Password: ********"], ["[ops@"+NAMES.rds+" ~]$ ","export DISPLAY=:1"] ],
+  5:[ ["[ops@"+NAMES.rds+" ~]$ ",NAMES.suite+" start"], ["","  backend  -> "+NAMES.mvm+"   18 services  [ OK ]"], ["","  hci      -> "+NAMES.rds+":1   2 HCIs       [ OK ]"] ],
+  6:[ ["[ops@"+NAMES.rds+" ~]$ ","exit"], ["","logout"], ["[engineer@"+NAMES.rds+" ~]$ ","exit"], ["","Connection to "+NAMES.rds+" closed."], ["C:\\Users\\engineer> ",""] ],
+};
+
+/* =====================================================================
+   Tiny 3D engine on a 2D canvas (no libraries).
+   It can morph between a perspective 3D view and a flat 2D front view.
+   ===================================================================== */
+const cv = document.getElementById("scene"), ctx = cv.getContext("2d");
+const labelsEl = document.getElementById("labels");
+let W=0,H=0,DPR=1;
+function resize(){ DPR=Math.min(2,window.devicePixelRatio||1); W=cv.clientWidth; H=cv.clientHeight; cv.width=W*DPR; cv.height=H*DPR; }
+window.addEventListener("resize",resize);
+
+const v3=(x,y,z)=>({x,y,z});
+const sub=(a,b)=>v3(a.x-b.x,a.y-b.y,a.z-b.z), add=(a,b)=>v3(a.x+b.x,a.y+b.y,a.z+b.z), mul=(a,s)=>v3(a.x*s,a.y*s,a.z*s);
+const dot=(a,b)=>a.x*b.x+a.y*b.y+a.z*b.z, cross=(a,b)=>v3(a.y*b.z-a.z*b.y,a.z*b.x-a.x*b.z,a.x*b.y-a.y*b.x);
+const norm=a=>{const l=Math.hypot(a.x,a.y,a.z)||1;return v3(a.x/l,a.y/l,a.z/l)};
+const lerp=(a,b,t)=>a+(b-a)*t, clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
+const ease=t=>{t=clamp(t);return t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2};
+const LIGHT=norm(v3(-.5,1,.6));
+
+function hex(c){c=c.replace("#","");return[parseInt(c.slice(0,2),16),parseInt(c.slice(2,4),16),parseInt(c.slice(4,6),16)]}
+function rgba(c,a){const[r,g,b]=Array.isArray(c)?c:hex(c);return`rgba(${r|0},${g|0},${b|0},${a})`}
+function mix(c1,c2,t){const a=hex(c1),b=hex(c2);return[lerp(a[0],b[0],t),lerp(a[1],b[1],t),lerp(a[2],b[2],t)]}
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const COL={bg:"#0b0f1a",vdi:"#5ad1ff",rds:"#ffb454",mvm:"#a78bfa",eng:"#6ee7a8",ops:"#ff7a9c",vnc:"#6ee7a8",white:"#e7ecf5",rack:"#8a94a8",tor:"#6ee7a8"};
+
+/* Camera. 3D: orbit camera. 2D: flat front view (x right, y up). */
+const LIMIT = { tx:[-16,12], ty:[0,8], tz:[-3,4], yaw:[-.9,.9], pitch:[.08,1.1], dist:[9,60] };
+const LIMIT2 = { zoom:[1,3.5] };
+const cam={tx:-2.5,ty:3.5,tz:0,yaw:.25,pitch:.4,dist:46,fov:1.0};
+const flat={cx:-2.6,cy:4.4,zoom:1};          // 2D view state
+let camGoal=null, mode=0, modeGoal=0;        // mode: 0 = 3D, 1 = 2D (animates between)
+let eye,fwd,right,up,focal,oScale;
+function clampCam(){ for(const k in LIMIT) cam[k]=clamp(cam[k],LIMIT[k][0],LIMIT[k][1]);
+  flat.zoom=clamp(flat.zoom,LIMIT2.zoom[0],LIMIT2.zoom[1]);
+  const hw=15.5*(1-1/flat.zoom), hh=4.8*(1-1/flat.zoom); flat.cx=clamp(flat.cx,-2.6-hw,-2.6+hw); flat.cy=clamp(flat.cy,4.4-hh,4.4+hh); }
+function setupCam(){
+  const cp=Math.cos(cam.pitch);
+  eye=v3(cam.tx+cam.dist*cp*Math.sin(cam.yaw),cam.ty+cam.dist*Math.sin(cam.pitch),cam.tz+cam.dist*cp*Math.cos(cam.yaw));
+  fwd=norm(sub(v3(cam.tx,cam.ty,cam.tz),eye)); right=norm(cross(fwd,v3(0,1,0))); up=cross(right,fwd);
+  focal=(Math.min(W,H*1.6)*DPR)/(2*Math.tan(cam.fov/2))*(W<=860?1.25:1);
+  const availW=(W>860?W-420:W-32)*DPR, availH=(W>860?H-190:H*.42)*DPR;
+  oScale=Math.min(availW/29,availH/10.2)*flat.zoom;
+}
+function panelShift(){ return W>860 ? 200*DPR : 0; }  // keep the scene centered in the space left of the panel
+function proj(p){
+  const ox=(W*DPR)/2-panelShift(), oy=(H*DPR)/2-(W<=860?H*.2*DPR:0);
+  let a=null;
+  if(mode<1){ const d=sub(p,eye), z=dot(d,fwd); if(z>.1) a={x:ox+dot(d,right)*focal/z, y:oy-dot(d,up)*focal/z, z, s:focal/z}; }
+  if(mode<=0) return a;
+  const o={x:ox+(p.x-flat.cx)*oScale, y:oy+30*DPR-(p.y-flat.cy)*oScale, z:60-p.z, s:oScale};
+  if(mode>=1) return o;
+  if(!a) return mode>.5?o:null;
+  const m=ease(mode); return {x:lerp(a.x,o.x,m),y:lerp(a.y,o.y,m),z:lerp(a.z,o.z,m),s:lerp(a.s,o.s,m)};
+}
+/* which way the viewer is looking, for back-face culling */
+const viewDir=c=> mode>.5 ? v3(0,0,-1) : sub(c,eye);
+
+/* Draw lists */
+let items=[], glows=[], flats=[];
+function quad(pts,fill,stroke,alpha,lw){
+  const P=pts.map(proj); if(P.some(p=>!p)) return;
+  const z=P.reduce((s,p)=>s+p.z,0)/P.length;
+  items.push({z,f:()=>{ctx.globalAlpha=alpha;ctx.beginPath();P.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();
+    if(fill){ctx.fillStyle=fill;ctx.fill()} if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=(lw||1.2)*DPR;ctx.stroke()} ctx.globalAlpha=1;}});
+}
+/* A box: dark glassy faces, bright colored edges. */
+function box(c,s,color,o={}){
+  const a=o.alpha??1; if(a<=.01) return;
+  const hx=s.x/2,hy=s.y/2,hz=s.z/2;
+  const V=[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]].map(([x,y,z])=>v3(c.x+x*hx,c.y+y*hy,c.z+z*hz));
+  const F=[[[0,3,2,1],v3(0,0,-1)],[[4,5,6,7],v3(0,0,1)],[[0,4,7,3],v3(-1,0,0)],[[1,2,6,5],v3(1,0,0)],[[3,7,6,2],v3(0,1,0)],[[0,1,5,4],v3(0,-1,0)]];
+  const glow=o.glow??0;
+  for(const[idx,n]of F){
+    const fc=idx.reduce((s,i)=>add(s,V[i]),v3(0,0,0)); const center=mul(fc,.25);
+    if(dot(n,viewDir(center))>=-1e-6) continue;
+    const lit=.35+.65*Math.max(0,dot(n,LIGHT));
+    const base=mix(COL.bg,color,(o.tint??.22)*(mode>.5?.8:lit)+glow*.35);
+    quad(idx.map(i=>V[i]),rgba(base,1),rgba(color,(o.edge??.55)+.45*glow),a,o.lw||1.1);
+  }
+}
+function pathDraw(P,alpha){ctx.beginPath();P.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));}
+function line(pts,color,alpha,w){ glows.push(()=>{const P=pts.map(proj); if(P.some(p=>!p))return;
+  ctx.strokeStyle=color; ctx.lineCap="round"; ctx.lineJoin="round";
+  for(const[lw,ga]of[[w*4,.15],[w,1]]){ctx.globalAlpha=alpha*ga;ctx.lineWidth=lw*DPR;pathDraw(P);ctx.stroke();}
+  ctx.globalAlpha=1;});}
+function thin(pts,color,alpha,w=1){ glows.push(()=>{const P=pts.map(proj); if(P.some(p=>!p))return;
+  ctx.strokeStyle=color;ctx.globalAlpha=alpha;ctx.lineWidth=w*DPR;pathDraw(P);ctx.stroke();ctx.globalAlpha=1;});}
+function dashed(pts,color,alpha,w,offset){ glows.push(()=>{const P=pts.map(proj); if(P.some(p=>!p))return;
+  ctx.setLineDash([6*DPR,8*DPR]);ctx.lineDashOffset=-offset*DPR;ctx.globalAlpha=alpha;ctx.strokeStyle=color;ctx.lineWidth=w*DPR;
+  pathDraw(P);ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;});}
+function dotp(p,r,color,alpha){ glows.push(()=>{const q=proj(p); if(!q)return; const rr=Math.max(1.2,r*q.s);
+  const g=ctx.createRadialGradient(q.x,q.y,0,q.x,q.y,rr*3);g.addColorStop(0,rgba(color,alpha));g.addColorStop(.3,rgba(color,alpha*.5));g.addColorStop(1,rgba(color,0));
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(q.x,q.y,rr*3,0,7);ctx.fill();});}
+/* Texture-map a canvas onto a flat rectangle (affine). corners: top-left, top-right, bottom-left. */
+function texQuad(tl,tr,bl,img,alpha,border){
+  const P=[proj(tl),proj(tr),proj(bl)]; if(P.some(p=>!p))return;
+  const br=add(tr,sub(bl,tl)), Pb=proj(br); if(!Pb) return;
+  const z=(P[0].z+P[1].z+P[2].z+Pb.z)/4;
+  items.push({z:z-.05,f:()=>{ctx.save();ctx.globalAlpha=alpha;
+    ctx.beginPath();ctx.moveTo(P[0].x,P[0].y);ctx.lineTo(P[1].x,P[1].y);ctx.lineTo(Pb.x,Pb.y);ctx.lineTo(P[2].x,P[2].y);ctx.closePath();ctx.clip();
+    ctx.setTransform((P[1].x-P[0].x)/img.width,(P[1].y-P[0].y)/img.width,(P[2].x-P[0].x)/img.height,(P[2].y-P[0].y)/img.height,P[0].x,P[0].y);
+    ctx.drawImage(img,0,0);ctx.restore();
+    if(border){ctx.globalAlpha=alpha;ctx.strokeStyle=border;ctx.lineWidth=1.5*DPR;ctx.beginPath();ctx.moveTo(P[0].x,P[0].y);ctx.lineTo(P[1].x,P[1].y);ctx.lineTo(Pb.x,Pb.y);ctx.lineTo(P[2].x,P[2].y);ctx.closePath();ctx.stroke();ctx.globalAlpha=1;}
+  }});
+}
+function platform(x0,x1,z0,z1,color){
+  flats.push(()=>{const P=[v3(x0,0,z0),v3(x1,0,z0),v3(x1,0,z1),v3(x0,0,z1)].map(proj); if(P.some(p=>!p))return;
+    ctx.fillStyle=rgba(mix(COL.bg,color,.07),1);ctx.strokeStyle=rgba(color,.35);ctx.lineWidth=1*DPR;
+    pathDraw(P);ctx.closePath();ctx.fill();ctx.stroke();
+    if(mode>.6) return;
+    ctx.globalAlpha=1-mode;ctx.strokeStyle=rgba(color,.07);
+    for(let x=Math.ceil(x0);x<=x1;x+=1){const a=proj(v3(x,0,z0)),b=proj(v3(x,0,z1));if(a&&b){ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}}
+    for(let z=Math.ceil(z0);z<=z1;z+=1){const a=proj(v3(x0,0,z)),b=proj(v3(x1,0,z));if(a&&b){ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}}
+    ctx.globalAlpha=1;});
+}
+/* Paths: arcs and straight runs, resampled so particles move at an even speed. */
+function arc(a,b,h,n=40){const pts=[];for(let i=0;i<=n;i++){const t=i/n;pts.push(v3(lerp(a.x,b.x,t),lerp(a.y,b.y,t)+h*4*t*(1-t),lerp(a.z,b.z,t)));}return pts;}
+function route(...parts){ const raw=[]; parts.forEach(p=>raw.push(...(Array.isArray(p)?p:[p])));
+  const out=[raw[0]]; for(let i=1;i<raw.length;i++){const a=raw[i-1],b=raw[i],L=Math.hypot(b.x-a.x,b.y-a.y,b.z-a.z),n=Math.max(1,Math.ceil(L/.2));
+    for(let k=1;k<=n;k++){const t=k/n;out.push(v3(lerp(a.x,b.x,t),lerp(a.y,b.y,t),lerp(a.z,b.z,t)));}}
+  return out; }
+function along(pts,t){t=((t%1)+1)%1;const f=t*(pts.length-1),i=Math.floor(f),u=f-i;const a=pts[i],b=pts[Math.min(i+1,pts.length-1)];return v3(lerp(a.x,b.x,u),lerp(a.y,b.y,u),lerp(a.z,b.z,u));}
+function stream(pts,color,alpha,n,speed,rev,size=.09){for(let i=0;i<n;i++){let t=(now*speed+i/n)%1; if(rev)t=1-t; dotp(along(pts,t),size,color,alpha);}}
+
+/* HTML labels */
+const LBL={};
+function label(id,p,html,color,alpha){
+  let el=LBL[id]; if(!el){el=LBL[id]=document.createElement("div");el.className="lbl";labelsEl.appendChild(el);}
+  if(el._h!==html){el.innerHTML=html;el._h=html;} el.style.setProperty("--c",color);
+  const q=proj(p); if(!q||alpha<=.01){el.style.opacity=0;return;}
+  el.style.left=(q.x/DPR)+"px"; el.style.top=(q.y/DPR-10)+"px"; el.style.opacity=alpha; el._seen=true;
+}
+
+
+/* =====================================================================
+   Scene layout (world units; y is up, racks face +z)
+   Rack = frame + top-of-rack (ToR) switch + servers.
+   A server running a hypervisor is drawn pulled out like a drawer so you
+   can see the VMs sitting on it, and the applications inside each VM.
+   ===================================================================== */
+const RACK_H=6.6, TOR_Y=6.15, SRV_W=2.2, SRV_D=2.2;
+const RACKS={
+  A:  {x:-10,  color:COL.vdi, name:NAMES.vdiRack, fillers:[.45,.75]},
+  B1: {x:4.8,  color:COL.rds, name:NAMES.rdsRack, fillers:[5.1,4.85,1.9,.75,.45]},
+  B2: {x:9.4,  color:COL.mvm, name:NAMES.mvmRack, fillers:[5.25,5,1.65,.75,.45]},
+};
+/* Hypervisor hosts. pull = how far the server slides out of the rack. */
+const HOSTS={
+  a1:{rack:"A", y:4.75, h:.3, pull:.5,  name:"hv-a1", vms:[{dx:-.72},{dx:0},{dx:.72}]},
+  a2:{rack:"A", y:3.3,  h:.3, pull:1.0, name:NAMES.vdiHost, vms:[{dx:-.72},{dx:0},{dx:.72,id:"vdi"}]},
+  a3:{rack:"A", y:1.85, h:.3, pull:1.5, name:"hv-a3", vms:[{dx:-.72},{dx:0},{dx:.72}]},
+  b1:{rack:"B1",y:3.3,  h:.3, pull:1.1, name:NAMES.rdsHost, vms:[{dx:-.4,w:1.2,hh:.6,d:1.4,id:"rds"},{dx:.75,w:.55,hh:.45,d:.9}]},
+  b2:{rack:"B2",y:2.9,  h:.55,pull:1.3, name:NAMES.mvmHost, vms:[{dx:0,w:2.04,hh:.95,d:1.95,id:"mvm"}]},
+};
+const VM={};   // id -> {c: center, s: size}
+for(const k in HOSTS){const h=HOSTS[k],r=RACKS[h.rack]; h.c=v3(r.x,h.y,-1.15-.05+h.pull);
+  h.vms.forEach(v=>{v.w=v.w||.62;v.hh=v.hh||.5;v.d=v.d||.9;v.c=v3(r.x+v.dx,h.y+h.h/2+v.hh/2,h.c.z+.2);v.s=v3(v.w,v.hh,v.d);if(v.id)VM[v.id]=v;});}
+const vmTop=(id,dx=0,dz=0)=>v3(VM[id].c.x+dx,VM[id].c.y+VM[id].s.y/2,VM[id].c.z+dz);
+const vmFront=(id,dx=0,dy=0)=>v3(VM[id].c.x+dx,VM[id].c.y+dy,VM[id].c.z+VM[id].s.z/2+.03);
+const torFront=(r,dx=0)=>v3(RACKS[r].x+dx,TOR_Y,.06);
+
+const P = {
+  console: v3(-15,0,2), screenTL:v3(-15.85,2.25,1.62), screenTR:v3(-14.15,2.25,1.62), screenBL:v3(-15.85,1.2,1.62),
+  vncTL:v3(3.2,9.3,-.6), vncTR:v3(6.4,9.3,-.6), vncBL:v3(3.2,7.35,-.6),
+};
+/* Applications (small cubes on top of their VM) */
+const APP=.22;
+const backend=[]; for(let i=0;i<18;i++){backend.push(vmTop("mvm",-.8+(i%6)*.32,-.6+Math.floor(i/6)*.6));}
+const hcis=[vmTop("rds",-.3,.35),vmTop("rds",.05,.35)], xvnc=vmTop("rds",.38,-.2);
+const termApp=vmTop("vdi",-.12,.2), viewerApp=vmTop("vdi",.14,.2);
+
+const PATH = {
+  desk: route(arc(v3(-15,2.3,1.5),torFront("A",-.6),1.2), vmFront("vdi",-.15)),
+  ssh:  route(vmFront("vdi",0,.1), torFront("A",0), arc(torFront("A",0),torFront("B1",-.3),3.2), vmFront("rds",-.3)),
+  vnc:  route(vmFront("vdi",.15,.1), torFront("A",.6), arc(torFront("A",.6),torFront("B1",.3),4.8), vmFront("rds",.3)),
+  hciUp: hcis.map((h,i)=>route(h, v3(P.vncBL.x+.8+i*1.4,P.vncBL.y,P.vncBL.z))),
+  hciBack: [0,1,0].map((h,i)=>route(hcis[h], torFront("B1",.7+i*.15), arc(torFront("B1",.7+i*.15),torFront("B2",-.5+i*.5),1.2), backend[[2,9,16][i]])),
+};
+
+/* =====================================================================
+   Offscreen canvases (engineer's screen + the VNC virtual display)
+   ===================================================================== */
+/* =====================================================================
+   Offscreen canvases: the engineer's screen and the VNC virtual display
+   ===================================================================== */
+const scr=document.createElement("canvas"); scr.width=640; scr.height=400; const sx=scr.getContext("2d");
+const vnc=document.createElement("canvas"); vnc.width=480; vnc.height=290; const vx=vnc.getContext("2d");
+const panelScreen=document.getElementById("screen").getContext("2d");
+
+function drawVNC(c,w,h,st,hciOn){
+  c.fillStyle="#1c2129";c.fillRect(0,0,w,h);
+  c.fillStyle="#2a313c";c.fillRect(0,0,w,h*.065);
+  c.fillStyle="#9aa3b2";c.font=`${Math.round(h*.04)}px ${css("--mono")}`;c.textBaseline="middle";c.fillText(NAMES.rds+":1  (virtual display)",w*.02,h*.033);
+  if(hciOn<=0){c.fillStyle="#5b6478";c.textAlign="center";c.fillText(st<3?"":"no windows yet",w/2,h/2);c.textAlign="left";return;}
+  c.globalAlpha=hciOn;
+  // HCI 1: status board
+  const x1=w*.04,y1=h*.12,w1=w*.44,h1=h*.8; win(c,x1,y1,w1,h1,"Mission Status HCI",COL.rds,h);
+  for(let i=0;i<6;i++){const y=y1+h1*.2+i*h1*.12, v=.35+.6*Math.abs(Math.sin(now*.6+i*1.7));
+    c.fillStyle="#3a4252";c.fillRect(x1+w1*.38,y,w1*.55,h1*.06);c.fillStyle=i===3?COL.ops:COL.eng;c.fillRect(x1+w1*.38,y,w1*.55*v,h1*.06);
+    c.fillStyle="#c5cbd8";c.font=`${Math.round(h*.035)}px ${css("--mono")}`;c.fillText("SVC-"+(i+1).toString().padStart(2,"0"),x1+w1*.06,y+h1*.03);}
+  // HCI 2: track display
+  const x2=w*.52,y2=h*.12,w2=w*.44,h2=h*.8; win(c,x2,y2,w2,h2,"Track Display HCI",COL.rds,h);
+  const cx=x2+w2/2,cy=y2+h2*.57,r=Math.min(w2,h2)*.36;
+  c.strokeStyle="rgba(110,231,168,.35)";c.lineWidth=1;for(const k of[1,.66,.33]){c.beginPath();c.arc(cx,cy,r*k,0,7);c.stroke();}
+  const a=now*1.2;c.strokeStyle="rgba(110,231,168,.9)";c.beginPath();c.moveTo(cx,cy);c.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);c.stroke();
+  for(let i=0;i<5;i++){const ang=i*1.3+now*.05,rr=r*(.3+.13*i);c.fillStyle=i===2?COL.ops:COL.eng;c.fillRect(cx+Math.cos(ang)*rr-2,cy+Math.sin(ang)*rr-2,4,4);}
+  c.globalAlpha=1;
+}
+function win(c,x,y,w,h,title,col,H){
+  c.fillStyle="#0f141d";c.fillRect(x,y,w,h);c.strokeStyle=col;c.lineWidth=1;c.strokeRect(x+.5,y+.5,w-1,h-1);
+  c.fillStyle=rgba(col,.22);c.fillRect(x,y,w,H*.06);c.fillStyle="#f2f5fa";c.font=`${Math.round(H*.036)}px ${css("--sans")}`;c.fillText(title,x+6,y+H*.03);
+}
+
+function drawScreen(st,t){
+  const c=sx,w=640,h=400;
+  if(st===0){c.fillStyle="#05070c";c.fillRect(0,0,w,h);c.fillStyle="#5b6478";c.font=`15px ${css("--sans")}`;c.textAlign="center";
+    c.fillText("VDI client · press Ctrl+Alt+Del to sign in",w/2,h/2);c.textAlign="left";return "VDI client";}
+  // Windows-ish desktop
+  const g=c.createLinearGradient(0,0,w,h);g.addColorStop(0,"#0b2a52");g.addColorStop(1,"#071426");c.fillStyle=g;c.fillRect(0,0,w,h);
+  c.fillStyle="rgba(10,14,22,.92)";c.fillRect(0,h-30,w,30);
+  c.fillStyle=COL.vdi;c.fillRect(12,h-21,12,12);
+  c.font=`11px ${css("--sans")}`;c.fillStyle="#c5cbd8";c.fillText("engineer @ "+NAMES.vdi,w-150,h-12);
+  const icons=[["Terminal","#cfd6e3"],["VNC Viewer",COL.vnc]];
+  icons.forEach(([n,col],i)=>{c.fillStyle=rgba(col,.85);c.fillRect(22,22+i*70,34,34);c.fillStyle="#e7ecf5";c.font=`11px ${css("--sans")}`;c.fillText(n,14,72+i*70);});
+  if(st===1){c.globalAlpha=clamp(t*1.5);c.fillStyle="rgba(15,20,34,.95)";c.fillRect(w-250,h-100,236,58);c.strokeStyle=COL.vdi;c.strokeRect(w-250,h-100,236,58);
+    c.fillStyle="#e7ecf5";c.font=`13px ${css("--sans")}`;c.fillText("Welcome, engineer",w-238,h-78);c.fillStyle="#8a94a8";c.font=`11px ${css("--sans")}`;c.fillText("Assigned desktop "+NAMES.vdi+" from "+"VDI pool",w-238,h-58);c.globalAlpha=1;return NAMES.vdi+" desktop";}
+  if(st>=2&&st<=6){
+    const x=90,y=26,ww=520,hh=330;
+    c.fillStyle="#0c0c0c";c.fillRect(x,y,ww,hh);c.fillStyle="#2b2f38";c.fillRect(x,y,ww,22);
+    c.fillStyle="#e7ecf5";c.font=`12px ${css("--sans")}`;c.fillText(st===6&&t>2.2?"Command Prompt":"Terminal · ssh "+NAMES.rds,x+8,y+15);
+    // gather lines: all earlier steps fully, current step typed
+    const lines=[]; for(let s=2;s<=st;s++){ (TERM[s]||[]).forEach((ln,i)=>lines.push({ln,s,i})); }
+    c.font=`12.5px ${css("--mono")}`;
+    const lh=17, maxL=Math.floor((hh-34)/lh); const vis=lines.slice(-maxL);
+    let budget=t*28; // chars per second
+    vis.forEach((o,row)=>{
+      const [pr,cmd]=o.ln; let shown=cmd;
+      if(o.s===st){ const need=pr.length+cmd.length; const take=Math.max(0,Math.min(need,budget)); budget-=need+6; if(take<=0&&row>0){return;} shown=cmd.slice(0,Math.max(0,take-pr.length)); }
+      const yy=y+40+row*lh;
+      c.fillStyle=pr.includes("ops@")?COL.ops:pr.includes("engineer@")?COL.eng:"#9aa3b2";c.fillText(pr,x+10,yy);
+      c.fillStyle=pr?"#ffffff":"#9aa3b2";c.fillText(shown,x+10+c.measureText(pr).width,yy);
+    });
+    if(Math.floor(now*2)%2){c.fillStyle="#e7ecf5";c.fillRect(x+10,y+40+Math.min(vis.length,maxL)*lh-11,7,13);}
+    return st===6?"closing SSH":"SSH terminal";
+  }
+  if(st===7){
+    const a=ease(t/1.2), x=lerp(200,40,a),y=lerp(140,20,a),ww=lerp(240,560,a),hh=lerp(150,338,a);
+    c.fillStyle="#1d2230";c.fillRect(x,y,ww,hh);c.fillStyle="#2b2f38";c.fillRect(x,y,ww,22);
+    c.fillStyle="#e7ecf5";c.font=`12px ${css("--sans")}`;c.fillText("VNC Viewer · "+NAMES.rds+":1",x+8,y+15);
+    c.save();c.translate(x+4,y+26);drawVNC(c,ww-8,hh-30,7,clamp((t-.6)*2));c.restore();
+    return "VNC viewer → "+NAMES.rds+":1";
+  }
+  return "";
+}
+
+
+/* =====================================================================
+   The scene for a given step (s) and time in that step (t, seconds)
+   ===================================================================== */
+const fade=(from,t,d=.8)=>step>from?1:step===from?ease(t/d):0;
+
+function post(a,b){ const A=proj(a),B=proj(b); if(!A||!B) return;
+  items.push({z:(A.z+B.z)/2,f:()=>{const p=proj(a),q=proj(b);ctx.strokeStyle=rgba(COL.rack,.7);ctx.lineWidth=2.2*DPR;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);ctx.stroke();}}); }
+function drawRack(r){
+  const R=RACKS[r], x=R.x, hw=1.2;
+  box(v3(x,RACK_H/2,-2.35),v3(2.4,RACK_H,.1),COL.rack,{tint:.12,edge:.25});          // back panel
+  box(v3(x,.06,-1.2),v3(2.5,.12,2.5),COL.rack,{tint:.18,edge:.35});                     // plinth
+  box(v3(x,RACK_H-.03,-1.2),v3(2.5,.08,2.5),COL.rack,{tint:.18,edge:.35});              // top
+  for(const dx of[-hw,hw]) for(const z of[-2.4,0]) post(v3(x+dx,.12,z),v3(x+dx,RACK_H-.07,z));  // posts
+  box(v3(x,TOR_Y,-1.15),v3(SRV_W,.24,SRV_D),COL.tor,{tint:.22,edge:.7});              // ToR switch
+  for(let i=0;i<12;i++){ const on=Math.sin(now*6+i*2.1+x)>.1; if(on) dotp(v3(x-.9+i*.16,TOR_Y,.03),.025,COL.tor,.9); }
+  R.fillers.forEach(y=>box(v3(x,y,-1.15),v3(SRV_W,.2,SRV_D),COL.rack,{tint:.1,edge:.3}));
+}
+function drawHost(k,active){
+  const h=HOSTS[k], col=RACKS[h.rack].color;
+  box(h.c,v3(SRV_W,h.h,SRV_D),col,{tint:.13,edge:.45,glow:active?.12:0});
+  dotp(v3(h.c.x+.95,h.c.y,h.c.z+SRV_D/2+.02),.03,COL.tor,.9);
+  dotp(v3(h.c.x+.82,h.c.y,h.c.z+SRV_D/2+.02),.03,active?col:COL.tor,.7);
+  h.vms.forEach(v=>{ const me=v.id&&active; box(v.c,v.s,col,{tint:me?.42:.2,edge:me?.9:.5,glow:me?.35+.15*Math.sin(now*3):0,alpha:v.id?1:.8}); });
+}
+function app(p,color,k,glow=.5){ if(k<=0) return; box(add(p,v3(0,APP*k/2,0)),v3(APP*k,APP*k,APP*k),color,{tint:.65,glow,edge:1}); }
+
+function buildScene(s,t){
+  items=[];glows=[];flats=[];
+  platform(-18,-7,-3.5,4.5,COL.vdi);
+  platform(2.5,12.5,-3.5,4.5,COL.mvm);
+  dashed([v3(-7,.02,1),v3(2.5,.02,1)],"#3a4560",.9,1.5,now*10);           // WAN
+
+  // Console desk + engineer
+  box(add(P.console,v3(0,.45,0)),v3(2.6,.9,1.3),"#8a94a8",{tint:.25});
+  box(v3(P.console.x,1.72,1.52),v3(2,1.3,.12),"#8a94a8",{tint:.2});
+  texQuad(P.screenTL,P.screenTR,P.screenBL,scr,1,s>=1?COL.vdi:"#3a4252");
+  box(v3(P.console.x,1.05,1.55),v3(.25,.3,.1),"#8a94a8",{tint:.2});
+  const eng = s>=4&&s<=5 ? COL.ops : COL.eng;
+  box(v3(P.console.x,.95,3.3),v3(.7,1.2,.45),eng,{tint:.35,glow:.2});
+  const head=v3(P.console.x,1.85,3.3), hq=proj(head);
+  if(hq) items.push({z:hq.z,f:()=>{const q=proj(head);const r=.3*q.s;ctx.fillStyle=rgba(mix(COL.bg,eng,.45),1);ctx.strokeStyle=eng;ctx.lineWidth=1.2*DPR;ctx.beginPath();ctx.arc(q.x,q.y,r,0,7);ctx.fill();ctx.stroke();}});
+
+  // Racks, hypervisors, VMs
+  for(const r in RACKS) drawRack(r);
+  drawHost("a1",false); drawHost("a2",s>=1); drawHost("a3",false);
+  drawHost("b1",s>=2); drawHost("b2",s>=5);
+
+  // Applications inside the VMs
+  const aTerm = s>=2&&s<=5 ? fade(2,t) : s===6 ? 1-ease((t-2)/1.2) : 0;
+  app(termApp,COL.white,aTerm,.3);
+  app(viewerApp,COL.vnc,fade(7,t));
+  app(xvnc,COL.vnc,fade(3,t));
+  const pT = s>5?99:s===5?t:-1;
+  if(pT>=0){
+    backend.forEach((b,i)=>app(b,COL.mvm,ease((pT-.4-i*.06)/.45),.3+.3*Math.sin(now*2+i)));
+    hcis.forEach((h,i)=>app(h,COL.rds,ease((pT-1.6-i*.15)/.45),.7));
+  }
+
+  // 1: console <-> VDI desktop (display protocol through the ToR switch)
+  const a1=fade(1,t);
+  if(a1>0){line(PATH.desk,COL.vdi,.45*a1,1.2); stream(PATH.desk,COL.vdi,a1,8,.35,false); stream(PATH.desk,COL.white,a1*.7,5,.3,true,.06);}
+
+  // 2-5: SSH session (fades out during step 6)
+  const aS = s>=2&&s<=5 ? fade(2,t) : s===6 ? 1-ease((t-2)/1.2) : 0;
+  if(aS>0){const col=s>=4?COL.ops:COL.eng; dashed(PATH.ssh,COL.rds,.85*aS,1.6,now*14); stream(PATH.ssh,col,aS,6,.25,false,.08);}
+
+  // 3+: VNC virtual display floating above the display rack
+  const aV=fade(3,t,1.2);
+  if(aV>0){
+    const L=v3(0,-(1-aV)*1.2,0);
+    texQuad(add(P.vncTL,L),add(P.vncTR,L),add(P.vncBL,L),vnc,aV,COL.vnc);
+    line([add(xvnc,v3(0,APP,0)),add(v3(P.vncTR.x-.3,P.vncBL.y,P.vncBL.z),L)],COL.vnc,.35*aV,.8);
+  }
+
+  // 5+: HCIs draw into display :1 and talk to the backend through both ToR switches
+  if(pT>=0){
+    hcis.forEach((h,i)=>{ if(pT-1.6-i*.15>.45){ line(PATH.hciUp[i],COL.rds,.5,1); stream(PATH.hciUp[i],COL.rds,.9,4,.45,false,.07);} });
+    const kl=clamp((pT-2.2)/.8);
+    if(kl>0) PATH.hciBack.forEach((pp,i)=>{line(pp,COL.mvm,.3*kl,1); stream(pp,COL.mvm,kl*.9,5,.18+.04*i,i%2===0,.07);});
+  }
+
+  // 7: VNC viewer, pixels stream back to the VDI desktop
+  const aN=fade(7,t,1);
+  if(aN>0){line(PATH.vnc,COL.vnc,.45*aN,1.6); stream(PATH.vnc,COL.vnc,aN,14,.2,true,.1); stream(PATH.vnc,COL.white,aN*.6,4,.2,false,.06);}
+
+  return {a1,aS,aV,aN,pT,aTerm};
+}
+
+function placeLabels(s,t,st){
+  for(const k in LBL) LBL[k]._seen=false;
+  const proc=st.pT>=0, ops=s>=4&&s<=5, two=mode>.5;
+  const on=(cond)=>cond?1:0;
+  label("con", v3(P.console.x,3.2,2.2), `<b>${NAMES.console}</b><small>thin client</small>`, COL.white, 1);
+  label("eng", v3(P.console.x,2.5,3.3), `<b>${ops?"ops":"engineer"}</b><small>${ops?"via su":"you"}</small>`, ops?COL.ops:COL.eng, on(s>=1&&!two));
+  // racks
+  label("rA",  v3(RACKS.A.x,RACK_H+.1,-1.2),  `<b>${NAMES.vdiRack}</b><small>Site A</small>`, COL.vdi, 1);
+  label("rB1", v3(RACKS.B1.x,RACK_H+.1,-1.2), `<b>${NAMES.rdsRack}</b>`, COL.rds, on(!(st.aV>0)));
+  label("rB2", v3(RACKS.B2.x,RACK_H+.1,-1.2), `<b>${NAMES.mvmRack}</b>`, COL.mvm, 1);
+  // switches + hypervisors (only where they matter)
+  label("torA", v3(RACKS.A.x-1.25,TOR_Y+.1,0), `<b>ToR switch</b>`, COL.tor, on(s===0||s===2));
+  label("torB", v3(RACKS.B1.x+1.3,TOR_Y+.1,0), `<b>ToR switch</b>`, COL.tor, on(s===2||s===5));
+  label("hvA", add(HOSTS.a2.c,v3(-1.7,.1,1.1)), `<b>${NAMES.vdiHost}</b><small>hypervisor</small>`, COL.vdi, on(s===1));
+  label("hvB1",add(HOSTS.b1.c,v3(1.7,0,1.1)), `<b>${NAMES.rdsHost}</b><small>hypervisor</small>`, COL.rds, on((s===2||s===3)&&!two));
+  label("hvB2",add(HOSTS.b2.c,v3(1.7,0,1.1)), `<b>${NAMES.mvmHost}</b><small>hypervisor</small>`, COL.mvm, on(s===5&&!two));
+  // VMs
+  label("me",  add(vmFront("vdi"),v3(1.5,-.1,0)), `<b>${NAMES.vdi}</b><small>Windows VM</small>`, COL.vdi, on(s>=1));
+  label("rds", add(vmFront("rds"),v3(-.7,-.55,.2)), `<b>${NAMES.rds}</b><small>Linux VM</small>`, COL.rds, 1);
+  label("mvm", add(vmFront("mvm"),v3(0,-.75,.2)), `<b>${NAMES.mvm}</b><small>large VM</small>`, COL.mvm, 1);
+  // applications
+  label("term", add(termApp,v3(-.3,1.0,0)), `<b>Terminal</b><small>app</small>`, COL.white, st.aTerm*on(s>=2&&s<=4));
+  label("view", add(viewerApp,v3(-.3,1.0,0)), `<b>VNC Viewer</b><small>app</small>`, COL.vnc, st.aN);
+  label("xvnc", add(xvnc,v3(.6,.3,0)), `<b>VNC server :1</b><small>app</small>`, COL.vnc, st.aV*on(s>=3&&s<=4));
+  label("be", vmTop("mvm",0,-.6), `<b>backend · 18 services</b><small>90%</small>`, COL.mvm, proc?clamp((st.pT-1)/.5):0);
+  label("hci", add(hcis[0],v3(-.7,.35,0)), `<b>2 HCIs</b><small>10%</small>`, COL.rds, proc?clamp((st.pT-2)/.5):0);
+  // network
+  label("siteA", v3(-12.5,0,4.5), `<b>${NAMES.siteA}</b>`, "#5b6478", on(!two));
+  label("siteB", v3(7.5,0,4.5), `<b>${NAMES.siteB}</b>`, "#5b6478", on(!two));
+  label("wan", v3(-2.25,.4,1), `<b>WAN</b><small>different location</small>`, "#5b6478", 1);
+  label("desk", along(PATH.desk,.3), `<b>display protocol</b><small>pixels ⇄ input</small>`, COL.vdi, st.a1*on(s<=1));
+  label("ssh", along(PATH.ssh,.5), `<b>SSH</b><small>port 22 · text</small>`, COL.rds, st.aS);
+  label("vncd", v3((P.vncTL.x+P.vncTR.x)/2,P.vncTL.y+.15,P.vncTL.z), `<b>VNC display :1</b><small>port 5901</small>`, COL.vnc, st.aV);
+  label("vncc", along(PATH.vnc,.5), `<b>VNC</b><small>pixels ⇄ input</small>`, COL.vnc, st.aN);
+  for(const k in LBL) if(!LBL[k]._seen) LBL[k].style.opacity=0;
+}
+
+/* =====================================================================
+   Step control, camera, input
+   ===================================================================== */
+const CAMS = [
+  {tx:-2.8,ty:3.6,tz:0,yaw:.22,pitch:.34,dist:37},
+  {tx:-12,ty:2.8,tz:.5,yaw:.42,pitch:.26,dist:17},
+  {tx:-2.8,ty:3.8,tz:0,yaw:.18,pitch:.3,dist:40},
+  {tx:5.4,ty:5.2,tz:0,yaw:-.3,pitch:.2,dist:23},
+  {tx:-2.8,ty:3.8,tz:0,yaw:.18,pitch:.3,dist:40},
+  {tx:7,ty:5,tz:0,yaw:-.26,pitch:.3,dist:26},
+  {tx:-2.8,ty:3.8,tz:0,yaw:.18,pitch:.3,dist:40},
+  {tx:-2.8,ty:4.2,tz:0,yaw:.18,pitch:.3,dist:42},
+];
+const FLAT_HOME={cx:-2.6,cy:4.4,zoom:1};
+let step=0, stepStart=performance.now(), now=0, playing=false;
+const DURATION=[6,6,7,8,7,9,7,9]; // seconds per step when playing
+
+const rail=document.getElementById("rail");
+STEPS.forEach((s,i)=>{const b=document.createElement("button");b.className="chap";b.innerHTML=`<div class="seg"><i></i></div><span>${String(i).padStart(2,"0")} ${s.short}</span>`;b.onclick=()=>{setPlay(false);go(i)};b.title=s.title;rail.appendChild(b);});
+
+function go(i){
+  step=clamp(i,0,STEPS.length-1); stepStart=performance.now(); camGoal=CAMS[step];
+  const s=STEPS[step];
+  document.getElementById("stepno").innerHTML=`<b>${String(step).padStart(2,"0")}</b> / ${String(STEPS.length-1).padStart(2,"0")}`;
+  document.getElementById("title").textContent=s.title;
+  document.getElementById("body").innerHTML=s.body;
+  const k=document.getElementById("key"); k.style.setProperty("--accent",css(s.accent)); k.innerHTML=`<span class="k">${s.key[0]}</span>${s.key[1]}`;
+  document.getElementById("split").style.display=s.split?"block":"none";
+  [...rail.children].forEach((c,j)=>{c.classList.toggle("on",j===step);c.classList.toggle("done",j<step);});
+}
+function setPlay(p){playing=p;document.getElementById("play").textContent=p?"❚❚":"▶";}
+function setView(two){ modeGoal=two?1:0; document.getElementById("v2").classList.toggle("on",two); document.getElementById("v3").classList.toggle("on",!two);
+  document.getElementById("hint").innerHTML = two
+    ? `<kbd>drag</kbd> pan · <kbd>scroll</kbd> zoom · <kbd>L</kbd> labels · <kbd>V</kbd> 2D/3D · <kbd>R</kbd> reset`
+    : `<kbd>drag</kbd> orbit · <kbd>right-drag</kbd> pan · <kbd>scroll</kbd> zoom · <kbd>L</kbd> labels · <kbd>V</kbd> 2D/3D · <kbd>R</kbd> reset`;
+  try{localStorage.setItem("rdp-view",two?"2d":"3d")}catch(e){} }
+function resetView(){ camGoal=CAMS[step]; Object.assign(flat,FLAT_HOME); }
+document.getElementById("prev").onclick=()=>{setPlay(false);go(step-1)};
+document.getElementById("next").onclick=()=>{setPlay(false);go(step+1)};
+document.getElementById("play").onclick=()=>{ if(!playing&&step===STEPS.length-1) go(0); setPlay(!playing); };
+document.getElementById("v2").onclick=()=>setView(true);
+document.getElementById("v3").onclick=()=>setView(false);
+
+window.addEventListener("keydown",e=>{
+  if(e.key==="ArrowRight"||e.key==="]"){setPlay(false);go(step+1)}
+  else if(e.key==="ArrowLeft"||e.key==="["){setPlay(false);go(step-1)}
+  else if(e.key===" "){e.preventDefault();document.getElementById("play").click()}
+  else if(e.key==="l"||e.key==="L"){document.body.classList.toggle("hidelabels")}
+  else if(e.key==="v"||e.key==="V"){setView(modeGoal<.5)}
+  else if(e.key==="r"||e.key==="R"){resetView()}
+  else if(e.key>="0"&&e.key<="7"){setPlay(false);go(+e.key)}
+});
+
+// Orbit / pan / zoom, all clamped to LIMIT so the scene can't be lost
+let drag=null;
+cv.addEventListener("contextmenu",e=>e.preventDefault());
+cv.addEventListener("pointerdown",e=>{drag={x:e.clientX,y:e.clientY,pan:e.button===2||e.shiftKey||modeGoal>.5};cv.setPointerCapture(e.pointerId);cv.classList.add("drag");camGoal=null;});
+cv.addEventListener("pointermove",e=>{ if(!drag)return; const dx=e.clientX-drag.x,dy=e.clientY-drag.y; drag.x=e.clientX;drag.y=e.clientY;
+  if(modeGoal>.5){ flat.cx-=dx*DPR/oScale; flat.cy+=dy*DPR/oScale; }
+  else if(drag.pan){const s=cam.dist*.0016;cam.tx-=(right.x*dx-up.x*dy)*s;cam.ty+=up.y*dy*s;cam.tz-=(right.z*dx-up.z*dy)*s;}
+  else{cam.yaw-=dx*.006;cam.pitch+=dy*.005;}
+  clampCam(); });
+cv.addEventListener("pointerup",()=>{drag=null;cv.classList.remove("drag")});
+cv.addEventListener("wheel",e=>{e.preventDefault();
+  if(modeGoal>.5) flat.zoom*=Math.exp(-e.deltaY*.0012); else {camGoal=null;cam.dist*=Math.exp(e.deltaY*.001);}
+  clampCam();},{passive:false});
+
+/* =====================================================================
+   Main loop
+   ===================================================================== */
+function frame(ts){
+  now=ts/1000; const t=(ts-stepStart)/1000;
+  if(playing && t>DURATION[step]){ if(step<STEPS.length-1) go(step+1); else setPlay(false); }
+  if(camGoal){ const k=.045; for(const key of ["tx","ty","tz","yaw","pitch","dist"]) cam[key]+= (camGoal[key]-cam[key])*k; }
+  mode += clamp(modeGoal-mode,-.035,.035);
+  setupCam();
+
+  drawVNC(vx,vnc.width,vnc.height,step, step>5?1:step===5?clamp((t-1.6)/.6):0);
+  const cap=drawScreen(step,t);
+  panelScreen.drawImage(scr,0,0);
+  document.getElementById("screencap").textContent=cap;
+
+  const st=buildScene(step,t);
+  ctx.setTransform(1,0,0,1,0,0);
+  const bg=ctx.createRadialGradient(cv.width*.4,cv.height*.35,0,cv.width*.4,cv.height*.35,Math.max(cv.width,cv.height)*.8);
+  bg.addColorStop(0,"#121a2c");bg.addColorStop(1,COL.bg);ctx.fillStyle=bg;ctx.fillRect(0,0,cv.width,cv.height);
+  flats.forEach(f=>f());
+  items.sort((a,b)=>b.z-a.z).forEach(it=>it.f());
+  ctx.globalCompositeOperation="lighter"; glows.forEach(f=>f()); ctx.globalCompositeOperation="source-over";
+  placeLabels(step,t,st);
+
+  const seg=rail.children[step]?.querySelector("i"); if(seg) seg.style.width=(playing?clamp(t/DURATION[step])*100:100)+"%";
+  [...rail.children].forEach((c,j)=>{ if(j!==step){ c.querySelector("i").style.width=j<step?"100%":"0"; } });
+  requestAnimationFrame(frame);
+}
+resize(); go(0); Object.assign(cam,CAMS[0]);
+try{ if(localStorage.getItem("rdp-view")==="2d"){ setView(true); mode=1; } }catch(e){}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
